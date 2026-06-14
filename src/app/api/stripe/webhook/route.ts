@@ -126,9 +126,18 @@ export async function POST(request: Request) {
           .select("id");
 
         if (claimed && claimed.length > 0) {
-          await admin.rpc("increment_discount_redemption", {
-            p_code: order.discount_code,
-          });
+          const { data: newCount } = await admin.rpc(
+            "increment_discount_redemption",
+            { p_code: order.discount_code },
+          );
+          // NULL means the code hit its cap (or vanished) between checkout and
+          // payment — the order still stands, we just log it.
+          if (newCount === null) {
+            console.warn(
+              "[stripe webhook] discount code at cap, not incremented:",
+              order.discount_code,
+            );
+          }
         }
       }
 

@@ -137,12 +137,35 @@ async function fetchActiveProducts(): Promise<StoreProduct[]> {
       description: p.description,
       category: p.category,
       prep_time_note: p.prep_time_note,
+      allergens: p.allergens,
       price_cents: p.price_cents,
       featured: p.featured,
       image_url: primary?.image_url ?? null,
       image_alt: primary?.alt_text ?? null,
     };
   });
+}
+
+// Fetches a single active product (with all images) for its public detail page.
+// Uses the cookieless public client; RLS only exposes active products to anon.
+export async function getActiveProductBySlug(
+  slug: string,
+): Promise<ProductWithImages | null> {
+  const supabase = createPublicClient();
+  const { data, error } = await supabase
+    .from("products")
+    .select("*, product_images(*)")
+    .eq("slug", slug)
+    .eq("active", true)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  if (!data) return null;
+
+  return {
+    ...(data as ProductWithImages),
+    product_images: sortImages((data as ProductWithImages).product_images ?? []),
+  };
 }
 
 export type { Product };

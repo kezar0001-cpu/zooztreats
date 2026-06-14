@@ -43,6 +43,7 @@ export const productSchema = z.object({
     .min(0, "Price cannot be negative."),
   category: z.string().trim().max(100).optional().or(z.literal("")),
   prep_time_note: z.string().trim().max(500).optional().or(z.literal("")),
+  allergens: z.string().trim().max(1000).optional().or(z.literal("")),
   active: z.boolean(),
   featured: z.boolean(),
   sort_order: z.number().int().min(0).default(0),

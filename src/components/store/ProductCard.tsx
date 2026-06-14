@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useCart } from "@/lib/cart";
 import { formatMoney } from "@/lib/money";
 import { ProductImage } from "./ProductImage";
@@ -23,17 +24,24 @@ export function ProductCard({ product }: { product: StoreProduct }) {
 
   return (
     <article className="flex flex-col overflow-hidden rounded-3xl border border-cream-300 bg-white shadow-soft transition-transform duration-200 hover:-translate-y-1">
-      <ProductImage
-        src={product.image_url}
-        alt={product.image_alt ?? product.name}
-        className="aspect-[4/3] w-full"
-        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 360px"
-      />
+      <Link href={`/products/${product.slug}`} aria-label={product.name}>
+        <ProductImage
+          src={product.image_url}
+          alt={product.image_alt ?? product.name}
+          className="aspect-[4/3] w-full"
+          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 360px"
+        />
+      </Link>
 
       <div className="flex flex-1 flex-col p-5">
         <div className="flex items-start justify-between gap-3">
           <h3 className="font-serif text-xl font-semibold text-brand-900">
-            {product.name}
+            <Link
+              href={`/products/${product.slug}`}
+              className="transition-colors hover:text-brand-700"
+            >
+              {product.name}
+            </Link>
           </h3>
           <span className="whitespace-nowrap text-lg font-bold text-brand-700">
             {formatMoney(product.price_cents)}

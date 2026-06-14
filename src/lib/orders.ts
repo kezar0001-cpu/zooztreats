@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import {
   ORDER_STATUSES,
   type FulfillmentMethod,
@@ -7,8 +8,10 @@ import {
   type OrderWithItems,
 } from "@/lib/types";
 
-// Admin reads run through the cookie-based client as the authenticated admin;
-// RLS permits authenticated select/update on orders.
+// Admin order reads use the service-role client. These functions are only ever
+// called from admin pages/actions already gated by requireAdmin/assertAdmin and
+// middleware, so trust is enforced at the app layer; RLS on `orders` can then
+// stay fully locked down (see migration 0008).
 
 export const ORDERS_PAGE_SIZE = 20;
 
@@ -30,7 +33,7 @@ export interface OrdersResult {
 export async function getOrders(
   filters: OrderFilters = {},
 ): Promise<OrdersResult> {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   const pageSize = filters.pageSize ?? ORDERS_PAGE_SIZE;
   const page = Math.max(1, filters.page ?? 1);
@@ -79,7 +82,7 @@ export interface OrderStats {
 // Dashboard metrics: revenue from paid orders, work-to-do counts, and a recent
 // orders list. Kept to a few targeted queries.
 export async function getOrderStats(): Promise<OrderStats> {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   const startOfToday = new Date();
   startOfToday.setHours(0, 0, 0, 0);
@@ -173,7 +176,6 @@ export async function getOrderByToken(
 export async function getOrderTokenBySession(
   sessionId: string,
 ): Promise<string | null> {
-  const { createAdminClient } = await import("@/lib/supabase/admin");
   const admin = createAdminClient();
   const { data } = await admin
     .from("orders")
@@ -184,7 +186,7 @@ export async function getOrderTokenBySession(
 }
 
 export async function getOrderById(id: string): Promise<OrderWithItems | null> {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("orders")
     .select("*, order_items(*)")

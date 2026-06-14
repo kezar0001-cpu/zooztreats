@@ -177,6 +177,24 @@ export function ProductForm({
           </div>
         </div>
 
+        <div>
+          <label htmlFor="allergens" className="admin-label">
+            Allergens / ingredients
+          </label>
+          <textarea
+            id="allergens"
+            name="allergens"
+            rows={2}
+            className="admin-input"
+            placeholder="Contains: wheat, eggs, dairy. May contain traces of nuts."
+            defaultValue={product?.allergens ?? ""}
+          />
+          <p className="mt-1 text-xs text-gray-400">
+            Shown on the product page to help customers with dietary needs.
+          </p>
+          <FieldError messages={errors?.allergens} />
+        </div>
+
         <div className="flex flex-wrap gap-6 pt-1">
           <label className="flex items-center gap-2 text-sm text-gray-700">
             <input

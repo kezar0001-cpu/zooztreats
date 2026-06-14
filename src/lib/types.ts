@@ -13,6 +13,7 @@ export interface Product {
   featured: boolean;
   sort_order: number;
   prep_time_note: string | null;
+  allergens: string | null;
   created_at: string;
   updated_at: string;
 }

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { assertAdmin } from "@/lib/auth";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripe } from "@/lib/stripe";
 import { env } from "@/lib/env";
 import { sendOrderStatusUpdate } from "@/lib/email";
@@ -40,7 +40,7 @@ export async function updateOrderStatus(
     return { ok: false, error: "Invalid order status." };
   }
 
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { data: updated, error } = await supabase
     .from("orders")
     .update({ order_status: status })
@@ -83,7 +83,7 @@ export async function refundOrder(
   const id = String(formData.get("id") ?? "");
   if (!id) return { ok: false, error: "Missing order id." };
 
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { data: order, error } = await supabase
     .from("orders")
     .select("*")
