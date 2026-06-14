@@ -137,12 +137,12 @@ export default async function DiscountsPage({
                               name="active"
                               value={d.active ? "false" : "true"}
                             />
-                            <button
-                              type="submit"
+                            <SubmitButton
                               className="admin-btn-secondary !px-2.5 !py-1 text-xs"
+                              pendingText="…"
                             >
                               {d.active ? "Off" : "On"}
-                            </button>
+                            </SubmitButton>
                           </form>
                           <Link
                             href={`/admin/discounts?edit=${d.id}`}

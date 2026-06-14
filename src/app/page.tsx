@@ -11,8 +11,6 @@ import { Footer } from "@/components/store/Footer";
 import { CartDrawer } from "@/components/store/CartDrawer";
 import { CheckoutCancelledNotice } from "@/components/store/CheckoutCancelledNotice";
 
-export const dynamic = "force-dynamic";
-
 // Async server component: loads active products from Supabase and handles the
 // error state. Wrapped in <Suspense> for the loading state.
 async function Menu() {

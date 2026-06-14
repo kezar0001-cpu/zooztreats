@@ -1,9 +1,10 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { assertAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { PRODUCTS_TAG } from "@/lib/products";
 import {
   productSchema,
   dollarsToCents,
@@ -91,6 +92,7 @@ export async function createProduct(
   }
 
   revalidatePath("/admin/products");
+  revalidateTag(PRODUCTS_TAG);
   revalidatePath("/admin");
   redirect(`/admin/products/${data.id}/edit?created=1`);
 }
@@ -148,6 +150,7 @@ export async function updateProduct(
   }
 
   revalidatePath("/admin/products");
+  revalidateTag(PRODUCTS_TAG);
   revalidatePath(`/admin/products/${id}/edit`);
   revalidatePath("/admin");
   return { ok: true, data: undefined, message: "Product saved." };
@@ -188,6 +191,7 @@ export async function deleteProduct(formData: FormData): Promise<void> {
   }
 
   revalidatePath("/admin/products");
+  revalidateTag(PRODUCTS_TAG);
   revalidatePath("/admin");
 }
 
@@ -203,6 +207,7 @@ export async function toggleProductActive(formData: FormData): Promise<void> {
   await supabase.from("products").update({ active: next }).eq("id", id);
 
   revalidatePath("/admin/products");
+  revalidateTag(PRODUCTS_TAG);
   revalidatePath("/admin");
 }
 
@@ -293,6 +298,7 @@ export async function uploadProductImages(
 
   revalidatePath(`/admin/products/${productId}/edit`);
   revalidatePath("/admin/products");
+  revalidateTag(PRODUCTS_TAG);
   return {
     ok: true,
     data: undefined,
@@ -341,6 +347,7 @@ export async function deleteProductImage(formData: FormData): Promise<void> {
 
   revalidatePath(`/admin/products/${productId}/edit`);
   revalidatePath("/admin/products");
+  revalidateTag(PRODUCTS_TAG);
 }
 
 // --- Images: set primary --------------------------------------------------
@@ -363,6 +370,7 @@ export async function setPrimaryImage(formData: FormData): Promise<void> {
 
   revalidatePath(`/admin/products/${productId}/edit`);
   revalidatePath("/admin/products");
+  revalidateTag(PRODUCTS_TAG);
 }
 
 // --- Images: reorder ------------------------------------------------------

@@ -1,6 +1,12 @@
+import { unstable_cache } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createPublicClient } from "@/lib/supabase/public";
 import type { Product, ProductImage, ProductWithImages } from "@/lib/types";
 import type { StoreProduct } from "@/types/store";
+
+// Cache tag for the public storefront product list. Mutations call
+// revalidateTag(PRODUCTS_TAG) to refresh it immediately.
+export const PRODUCTS_TAG = "products";
 
 // Order images so the primary one comes first, then by sort_order.
 function sortImages(images: ProductImage[]): ProductImage[] {
@@ -91,8 +97,18 @@ export function getPrimaryImage(
 // Fetches active products for the public storefront, flattened to a primary
 // image. RLS only exposes active products to anonymous visitors; we also filter
 // explicitly. Sorted: featured first, then sort_order, then name.
-export async function getActiveProducts(): Promise<StoreProduct[]> {
-  const supabase = await createClient();
+//
+// Wrapped in unstable_cache (tagged PRODUCTS_TAG) so repeat visits don't hit the
+// database; admin product mutations call revalidateTag(PRODUCTS_TAG). Uses the
+// cookieless public client because unstable_cache must not read cookies/headers.
+export const getActiveProducts = unstable_cache(
+  fetchActiveProducts,
+  ["active-products"],
+  { tags: [PRODUCTS_TAG], revalidate: 300 },
+);
+
+async function fetchActiveProducts(): Promise<StoreProduct[]> {
+  const supabase = createPublicClient();
   const { data, error } = await supabase
     .from("products")
     .select("*, product_images(*)")

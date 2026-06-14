@@ -103,12 +103,12 @@ export default async function ProductsPage({
                               name="active"
                               value={product.active ? "false" : "true"}
                             />
-                            <button
-                              type="submit"
+                            <SubmitButton
                               className="admin-btn-secondary !px-3 !py-1.5"
+                              pendingText="…"
                             >
                               {product.active ? "Deactivate" : "Activate"}
-                            </button>
+                            </SubmitButton>
                           </form>
                           <Link
                             href={`/admin/products/${product.id}/edit`}
@@ -172,12 +172,12 @@ export default async function ProductsPage({
                         name="active"
                         value={product.active ? "false" : "true"}
                       />
-                      <button
-                        type="submit"
+                      <SubmitButton
                         className="admin-btn-secondary !px-3 !py-1.5"
+                        pendingText="…"
                       >
                         {product.active ? "Deactivate" : "Activate"}
-                      </button>
+                      </SubmitButton>
                     </form>
                     <Link
                       href={`/admin/products/${product.id}/edit`}
