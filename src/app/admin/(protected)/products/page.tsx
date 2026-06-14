@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getProducts, getPrimaryImage } from "@/lib/products";
 import { formatMoney } from "@/lib/money";
+import { Alert } from "@/components/admin/Alert";
 import { Badge } from "@/components/admin/Badge";
 import { ProductThumb } from "@/components/admin/ProductThumb";
 import { SubmitButton } from "@/components/admin/SubmitButton";
@@ -8,11 +9,17 @@ import { deleteProduct, toggleProductActive } from "./actions";
 
 export const dynamic = "force-dynamic";
 
-export default async function ProductsPage() {
+export default async function ProductsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
+  const { error } = await searchParams;
   const products = await getProducts();
 
   return (
     <div className="space-y-6">
+      {error ? <Alert variant="error">{error}</Alert> : null}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Products</h1>

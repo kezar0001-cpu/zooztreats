@@ -3,6 +3,13 @@ import type Stripe from "stripe";
 import { getStripe } from "@/lib/stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { env } from "@/lib/env";
+import { sendOrderConfirmation } from "@/lib/email";
+import type { Order, OrderItem } from "@/lib/types";
+
+function orderStatusUrl(token: string | null): string | undefined {
+  if (!token || !env.siteUrl) return undefined;
+  return `${env.siteUrl}/orders/${token}`;
+}
 
 export const dynamic = "force-dynamic";
 
@@ -122,6 +129,37 @@ export async function POST(request: Request) {
           await admin.rpc("increment_discount_redemption", {
             p_code: order.discount_code,
           });
+        }
+      }
+
+      // Send the confirmation email exactly once. The boolean flag is the
+      // atomic guard: only the update that flips false->true sends. Email
+      // failures are logged but never fail the webhook.
+      const { data: emailClaim } = await admin
+        .from("orders")
+        .update({ confirmation_email_sent: true })
+        .eq("id", order.id)
+        .eq("confirmation_email_sent", false)
+        .select("*");
+
+      if (emailClaim && emailClaim.length > 0) {
+        const paidOrder = emailClaim[0] as Order;
+        const { data: items } = await admin
+          .from("order_items")
+          .select("*")
+          .eq("order_id", order.id)
+          .order("created_at", { ascending: true });
+        try {
+          await sendOrderConfirmation(
+            paidOrder,
+            (items ?? []) as OrderItem[],
+            { statusUrl: orderStatusUrl(paidOrder.order_token) },
+          );
+        } catch (e) {
+          console.error(
+            "[stripe webhook] confirmation email failed:",
+            (e as Error)?.message,
+          );
         }
       }
     } else if (event.type === "checkout.session.expired") {

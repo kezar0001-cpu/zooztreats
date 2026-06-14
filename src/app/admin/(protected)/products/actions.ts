@@ -162,13 +162,26 @@ export async function deleteProduct(formData: FormData): Promise<void> {
 
   const supabase = await createClient();
 
-  // Clean up storage objects (DB rows cascade on product delete).
+  // Clean up storage objects (DB rows cascade on product delete; order_items
+  // keep their snapshotted product_name via ON DELETE SET NULL).
   const { data: images } = await supabase
     .from("product_images")
     .select("storage_path")
     .eq("product_id", id);
 
-  await supabase.from("products").delete().eq("id", id);
+  const { error } = await supabase.from("products").delete().eq("id", id);
+
+  if (error) {
+    // Surface a friendly, actionable error instead of a server crash. With the
+    // ON DELETE SET NULL migration applied this should not happen, but if the
+    // migration is missing we guide the operator to deactivate instead.
+    console.error("[deleteProduct] failed:", error.message);
+    redirect(
+      `/admin/products?error=${encodeURIComponent(
+        "Couldn't delete this product. It may appear in past orders — deactivate it instead to hide it from the store.",
+      )}`,
+    );
+  }
 
   if (images && images.length > 0) {
     await deleteStorageObjects(images.map((i) => i.storage_path));

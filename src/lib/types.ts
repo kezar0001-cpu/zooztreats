@@ -108,6 +108,8 @@ export interface Order {
   payment_status: PaymentStatus;
   order_status: OrderStatus;
   discount_redemption_recorded: boolean;
+  confirmation_email_sent: boolean;
+  order_token: string | null;
   stripe_payment_intent_id: string | null;
   created_at: string;
   updated_at: string;

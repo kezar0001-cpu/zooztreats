@@ -56,6 +56,30 @@ export const env = {
   get siteUrl(): string | undefined {
     return process.env.NEXT_PUBLIC_SITE_URL?.trim() || undefined;
   },
+
+  // --- Transactional email (optional) ---
+  // When RESEND_API_KEY is unset, email sending is skipped gracefully so the
+  // store keeps working without an email provider configured.
+  get resendApiKey(): string | undefined {
+    return process.env.RESEND_API_KEY?.trim() || undefined;
+  },
+  // "From" address for outbound email. Must be a verified Resend sender/domain
+  // in production. Defaults to Resend's shared sandbox sender for local testing.
+  get emailFrom(): string {
+    return (
+      process.env.EMAIL_FROM?.trim() || "Zooz Treats <onboarding@resend.dev>"
+    );
+  },
+  // Owner/operator address that receives a copy of every new paid order.
+  get orderNotificationEmail(): string | undefined {
+    return process.env.ORDER_NOTIFICATION_EMAIL?.trim() || undefined;
+  },
+
+  // --- Background jobs ---
+  // Shared secret guarding scheduled cron routes.
+  get cronSecret(): string | undefined {
+    return process.env.CRON_SECRET?.trim() || undefined;
+  },
 };
 
 // Parse ADMIN_EMAILS into a normalized lowercase list.
