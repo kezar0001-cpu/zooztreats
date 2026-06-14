@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BrandLogo } from "@/components/brand/BrandLogo";
 
 export function Footer() {
   return (
@@ -6,8 +7,8 @@ export function Footer() {
       <div className="mx-auto max-w-6xl px-4 py-12">
         <div className="grid grid-cols-1 gap-8 sm:grid-cols-3">
           <div>
-            <div className="flex items-center gap-2">
-              <span aria-hidden>🍪</span>
+            <div className="flex items-center gap-2.5">
+              <BrandLogo size={44} />
               <span className="font-serif text-lg font-bold">Zooz Treats</span>
             </div>
             <p className="mt-2 text-sm text-cream-200/80">

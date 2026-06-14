@@ -3,6 +3,13 @@ import type Stripe from "stripe";
 import { getStripe } from "@/lib/stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { env } from "@/lib/env";
+import { sendOrderConfirmation, emailEnabled } from "@/lib/email";
+import type { Order, OrderItem } from "@/lib/types";
+
+function orderStatusUrl(token: string | null): string | undefined {
+  if (!token || !env.siteUrl) return undefined;
+  return `${env.siteUrl}/orders/${token}`;
+}
 
 export const dynamic = "force-dynamic";
 
@@ -119,10 +126,53 @@ export async function POST(request: Request) {
           .select("id");
 
         if (claimed && claimed.length > 0) {
-          await admin.rpc("increment_discount_redemption", {
-            p_code: order.discount_code,
-          });
+          const { data: newCount } = await admin.rpc(
+            "increment_discount_redemption",
+            { p_code: order.discount_code },
+          );
+          // NULL means the code hit its cap (or vanished) between checkout and
+          // payment — the order still stands, we just log it.
+          if (newCount === null) {
+            console.warn(
+              "[stripe webhook] discount code at cap, not incremented:",
+              order.discount_code,
+            );
+          }
         }
+      }
+
+      // Send the confirmation email exactly once. The boolean flag is the
+      // atomic guard: only the update that flips false->true sends. Skipped
+      // entirely when EMAIL_PROVIDER=none. Email failures are logged but never
+      // fail the webhook.
+      if (emailEnabled()) {
+      const { data: emailClaim } = await admin
+        .from("orders")
+        .update({ confirmation_email_sent: true })
+        .eq("id", order.id)
+        .eq("confirmation_email_sent", false)
+        .select("*");
+
+      if (emailClaim && emailClaim.length > 0) {
+        const paidOrder = emailClaim[0] as Order;
+        const { data: items } = await admin
+          .from("order_items")
+          .select("*")
+          .eq("order_id", order.id)
+          .order("created_at", { ascending: true });
+        try {
+          await sendOrderConfirmation(
+            paidOrder,
+            (items ?? []) as OrderItem[],
+            { statusUrl: orderStatusUrl(paidOrder.order_token) },
+          );
+        } catch (e) {
+          console.error(
+            "[stripe webhook] confirmation email failed:",
+            (e as Error)?.message,
+          );
+        }
+      }
       }
     } else if (event.type === "checkout.session.expired") {
       const session = event.data.object as Stripe.Checkout.Session;
@@ -136,6 +186,19 @@ export async function POST(request: Request) {
         await base.eq("id", orderId);
       } else {
         await base.eq("stripe_session_id", session.id);
+      }
+    } else if (event.type === "charge.refunded") {
+      // Sync refunds initiated from the Stripe dashboard (or our own action).
+      const charge = event.data.object as Stripe.Charge;
+      const pi =
+        typeof charge.payment_intent === "string"
+          ? charge.payment_intent
+          : (charge.payment_intent?.id ?? null);
+      if (pi) {
+        await admin
+          .from("orders")
+          .update({ payment_status: "refunded", order_status: "refunded" })
+          .eq("stripe_payment_intent_id", pi);
       }
     }
 

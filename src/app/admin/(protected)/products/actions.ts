@@ -1,9 +1,10 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { assertAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { PRODUCTS_TAG } from "@/lib/products";
 import {
   productSchema,
   dollarsToCents,
@@ -34,6 +35,7 @@ function parseProductForm(formData: FormData) {
     price_cents: priceCents ?? NaN,
     category: String(formData.get("category") ?? ""),
     prep_time_note: String(formData.get("prep_time_note") ?? ""),
+    allergens: String(formData.get("allergens") ?? ""),
     active: checkbox(formData.get("active")),
     featured: checkbox(formData.get("featured")),
     sort_order: Number(formData.get("sort_order") ?? 0) || 0,
@@ -72,6 +74,7 @@ export async function createProduct(
       price_cents: v.price_cents,
       category: v.category || null,
       prep_time_note: v.prep_time_note || null,
+      allergens: v.allergens || null,
       active: v.active,
       featured: v.featured,
       sort_order: v.sort_order,
@@ -91,6 +94,7 @@ export async function createProduct(
   }
 
   revalidatePath("/admin/products");
+  revalidateTag(PRODUCTS_TAG);
   revalidatePath("/admin");
   redirect(`/admin/products/${data.id}/edit?created=1`);
 }
@@ -130,6 +134,7 @@ export async function updateProduct(
       price_cents: v.price_cents,
       category: v.category || null,
       prep_time_note: v.prep_time_note || null,
+      allergens: v.allergens || null,
       active: v.active,
       featured: v.featured,
       sort_order: v.sort_order,
@@ -148,6 +153,7 @@ export async function updateProduct(
   }
 
   revalidatePath("/admin/products");
+  revalidateTag(PRODUCTS_TAG);
   revalidatePath(`/admin/products/${id}/edit`);
   revalidatePath("/admin");
   return { ok: true, data: undefined, message: "Product saved." };
@@ -162,19 +168,33 @@ export async function deleteProduct(formData: FormData): Promise<void> {
 
   const supabase = await createClient();
 
-  // Clean up storage objects (DB rows cascade on product delete).
+  // Clean up storage objects (DB rows cascade on product delete; order_items
+  // keep their snapshotted product_name via ON DELETE SET NULL).
   const { data: images } = await supabase
     .from("product_images")
     .select("storage_path")
     .eq("product_id", id);
 
-  await supabase.from("products").delete().eq("id", id);
+  const { error } = await supabase.from("products").delete().eq("id", id);
+
+  if (error) {
+    // Surface a friendly, actionable error instead of a server crash. With the
+    // ON DELETE SET NULL migration applied this should not happen, but if the
+    // migration is missing we guide the operator to deactivate instead.
+    console.error("[deleteProduct] failed:", error.message);
+    redirect(
+      `/admin/products?error=${encodeURIComponent(
+        "Couldn't delete this product. It may appear in past orders — deactivate it instead to hide it from the store.",
+      )}`,
+    );
+  }
 
   if (images && images.length > 0) {
     await deleteStorageObjects(images.map((i) => i.storage_path));
   }
 
   revalidatePath("/admin/products");
+  revalidateTag(PRODUCTS_TAG);
   revalidatePath("/admin");
 }
 
@@ -190,6 +210,7 @@ export async function toggleProductActive(formData: FormData): Promise<void> {
   await supabase.from("products").update({ active: next }).eq("id", id);
 
   revalidatePath("/admin/products");
+  revalidateTag(PRODUCTS_TAG);
   revalidatePath("/admin");
 }
 
@@ -280,6 +301,7 @@ export async function uploadProductImages(
 
   revalidatePath(`/admin/products/${productId}/edit`);
   revalidatePath("/admin/products");
+  revalidateTag(PRODUCTS_TAG);
   return {
     ok: true,
     data: undefined,
@@ -328,6 +350,7 @@ export async function deleteProductImage(formData: FormData): Promise<void> {
 
   revalidatePath(`/admin/products/${productId}/edit`);
   revalidatePath("/admin/products");
+  revalidateTag(PRODUCTS_TAG);
 }
 
 // --- Images: set primary --------------------------------------------------
@@ -350,6 +373,7 @@ export async function setPrimaryImage(formData: FormData): Promise<void> {
 
   revalidatePath(`/admin/products/${productId}/edit`);
   revalidatePath("/admin/products");
+  revalidateTag(PRODUCTS_TAG);
 }
 
 // --- Images: reorder ------------------------------------------------------

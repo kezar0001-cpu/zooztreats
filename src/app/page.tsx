@@ -9,8 +9,7 @@ import { TrustSection } from "@/components/store/TrustSection";
 import { FAQ } from "@/components/store/FAQ";
 import { Footer } from "@/components/store/Footer";
 import { CartDrawer } from "@/components/store/CartDrawer";
-
-export const dynamic = "force-dynamic";
+import { CheckoutCancelledNotice } from "@/components/store/CheckoutCancelledNotice";
 
 // Async server component: loads active products from Supabase and handles the
 // error state. Wrapped in <Suspense> for the loading state.
@@ -67,6 +66,7 @@ export default function HomePage() {
       </main>
       <Footer />
       <CartDrawer />
+      <CheckoutCancelledNotice />
     </div>
   );
 }

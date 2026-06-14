@@ -9,6 +9,7 @@ export interface StoreProduct {
   description: string | null;
   category: string | null;
   prep_time_note: string | null;
+  allergens: string | null;
   price_cents: number;
   featured: boolean;
   image_url: string | null;

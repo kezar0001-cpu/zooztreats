@@ -56,6 +56,34 @@ export const env = {
   get siteUrl(): string | undefined {
     return process.env.NEXT_PUBLIC_SITE_URL?.trim() || undefined;
   },
+
+  // --- Transactional email ---
+  // Email is OFF by default. The store relies on Stripe receipts + the order
+  // status page instead of custom email. Set EMAIL_PROVIDER=resend (and the
+  // Resend vars) to opt in later. Recognized values: "none" | "resend".
+  get emailProvider(): "none" | "resend" {
+    return process.env.EMAIL_PROVIDER?.trim() === "resend" ? "resend" : "none";
+  },
+  get resendApiKey(): string | undefined {
+    return process.env.RESEND_API_KEY?.trim() || undefined;
+  },
+  // "From" address for outbound email. Must be a verified Resend sender/domain
+  // in production. Defaults to Resend's shared sandbox sender for local testing.
+  get emailFrom(): string {
+    return (
+      process.env.EMAIL_FROM?.trim() || "Zooz Treats <onboarding@resend.dev>"
+    );
+  },
+  // Owner/operator address that receives a copy of every new paid order.
+  get orderNotificationEmail(): string | undefined {
+    return process.env.ORDER_NOTIFICATION_EMAIL?.trim() || undefined;
+  },
+
+  // --- Background jobs ---
+  // Shared secret guarding scheduled cron routes.
+  get cronSecret(): string | undefined {
+    return process.env.CRON_SECRET?.trim() || undefined;
+  },
 };
 
 // Parse ADMIN_EMAILS into a normalized lowercase list.

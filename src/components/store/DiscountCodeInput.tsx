@@ -78,7 +78,7 @@ export function DiscountCodeInput() {
           type="button"
           onClick={apply}
           disabled={loading || code.trim() === ""}
-          className="shrink-0 rounded-full bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-700 disabled:opacity-50"
+          className="shrink-0 rounded-full bg-brand-600 px-4 py-2 text-sm font-semibold text-cream-50 transition-colors hover:bg-brand-700 disabled:opacity-50"
         >
           {loading ? "…" : "Apply"}
         </button>

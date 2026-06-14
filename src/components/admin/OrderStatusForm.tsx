@@ -10,9 +10,11 @@ import type { ActionResult } from "@/lib/types";
 export function OrderStatusForm({
   orderId,
   current,
+  emailDisabled = false,
 }: {
   orderId: string;
   current: OrderStatus;
+  emailDisabled?: boolean;
 }) {
   const [state, formAction] = useActionState<ActionResult | null, FormData>(
     updateOrderStatus,
@@ -48,6 +50,13 @@ export function OrderStatusForm({
       {state && !state.ok ? <Alert variant="error">{state.error}</Alert> : null}
       {state && state.ok ? (
         <Alert variant="success">{state.message ?? "Updated."}</Alert>
+      ) : null}
+
+      {emailDisabled ? (
+        <p className="text-xs text-gray-500">
+          Customer email notifications are disabled. The customer can use their
+          order status link to check progress.
+        </p>
       ) : null}
     </form>
   );

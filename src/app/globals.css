@@ -13,7 +13,7 @@ html {
 }
 
 body {
-  @apply bg-gray-50 text-gray-900 antialiased;
+  @apply bg-cream-50 text-brand-900 antialiased;
 }
 
 /* Shared admin form controls */
@@ -31,7 +31,7 @@ body {
       font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60;
   }
   .admin-btn-primary {
-    @apply admin-btn bg-brand-600 text-white hover:bg-brand-700;
+    @apply admin-btn bg-brand-600 text-cream-50 hover:bg-brand-700;
   }
   .admin-btn-secondary {
     @apply admin-btn border border-gray-300 bg-white text-gray-700 hover:bg-gray-50;
@@ -50,9 +50,9 @@ body {
       disabled:opacity-60;
   }
   .store-btn-primary {
-    @apply store-btn bg-brand-600 text-white shadow-soft hover:bg-brand-700;
+    @apply store-btn bg-brand-600 text-cream-50 shadow-soft hover:bg-brand-700;
   }
   .store-btn-secondary {
-    @apply store-btn border border-brand-200 bg-white text-brand-700 hover:bg-cream-100;
+    @apply store-btn border border-caramel-300 bg-white text-brand-700 hover:bg-blush-50;
   }
 }

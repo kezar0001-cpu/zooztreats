@@ -5,6 +5,8 @@ import { formatMoney } from "@/lib/money";
 import { formatDate } from "@/lib/format";
 import { PaymentBadge, OrderStatusBadge } from "@/components/admin/OrderBadges";
 import { OrderStatusForm } from "@/components/admin/OrderStatusForm";
+import { RefundButton } from "@/components/admin/RefundButton";
+import { emailEnabled } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
 
@@ -179,11 +181,25 @@ export default async function OrderDetailPage({
           </dl>
         </div>
 
-        <div className="admin-card p-5">
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
-            Update status
-          </h2>
-          <OrderStatusForm orderId={order.id} current={order.order_status} />
+        <div className="admin-card space-y-4 p-5">
+          <div>
+            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
+              Update status
+            </h2>
+            <OrderStatusForm
+              orderId={order.id}
+              current={order.order_status}
+              emailDisabled={!emailEnabled()}
+            />
+          </div>
+          {order.payment_status === "paid" ? (
+            <div className="border-t border-gray-100 pt-4">
+              <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
+                Refund
+              </h2>
+              <RefundButton orderId={order.id} />
+            </div>
+          ) : null}
         </div>
       </div>
     </div>
