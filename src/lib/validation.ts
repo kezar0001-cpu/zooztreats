@@ -93,10 +93,12 @@ export type DiscountInput = z.infer<typeof discountSchema>;
 // ---------------------------------------------------------------------------
 // Image upload constraints
 // ---------------------------------------------------------------------------
-export const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5 MB
+export const MAX_IMAGE_BYTES = 8 * 1024 * 1024; // 8 MB
 export const ALLOWED_IMAGE_TYPES = [
   "image/jpeg",
   "image/png",
   "image/webp",
-  "image/gif",
 ] as const;
+
+export const ALLOWED_IMAGE_EXTENSIONS = "JPEG, PNG or WEBP";
+export const MAX_IMAGE_MB = 8;

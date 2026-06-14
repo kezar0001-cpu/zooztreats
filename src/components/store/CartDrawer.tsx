@@ -6,11 +6,19 @@ import {
   selectSubtotalCents,
   selectItemCount,
   requestDiscountValidation,
+  requestCheckout,
 } from "@/lib/cart";
 import { formatMoney } from "@/lib/money";
+import {
+  computeShippingCents,
+  FLAT_SHIPPING_CENTS,
+  SHIPPING_ENABLED,
+  LOCAL_PICKUP_ENABLED,
+} from "@/lib/fulfillment";
 import { ProductImage } from "./ProductImage";
 import { QuantitySelector } from "./QuantitySelector";
 import { DiscountCodeInput } from "./DiscountCodeInput";
+import type { FulfillmentMethod } from "@/lib/types";
 
 export function CartDrawer() {
   const isOpen = useCart((s) => s.isOpen);
@@ -24,8 +32,13 @@ export function CartDrawer() {
   const discountCode = useCart((s) => s.discountCode);
   const setDiscount = useCart((s) => s.setDiscount);
   const clearDiscount = useCart((s) => s.clearDiscount);
+  const fulfillmentMethod = useCart((s) => s.fulfillmentMethod);
+  const setFulfillmentMethod = useCart((s) => s.setFulfillmentMethod);
 
   const [mounted, setMounted] = useState(false);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
+
   useEffect(() => setMounted(true), []);
 
   // Close on Escape.
@@ -47,9 +60,7 @@ export function CartDrawer() {
     };
   }, [isOpen, mounted]);
 
-  // Re-validate an applied discount whenever the subtotal changes, so percent
-  // discounts stay accurate and minimums are re-checked. Clear it if the cart
-  // empties.
+  // Re-validate an applied discount whenever the subtotal changes.
   useEffect(() => {
     if (!discountCode) return;
     if (items.length === 0) {
@@ -63,12 +74,58 @@ export function CartDrawer() {
     return () => {
       cancelled = true;
     };
-    // Intentionally depends on subtotal (recompute) and discountCode (re-apply).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [subtotal, discountCode]);
 
-  const discountCents = discount?.valid ? discount.discount_cents : 0;
-  const total = Math.max(0, subtotal - discountCents);
+  const validDiscount = discount?.valid ? discount : null;
+  const discountCents = validDiscount ? validDiscount.discount_cents : 0;
+  const shippingCents = computeShippingCents(
+    fulfillmentMethod,
+    validDiscount?.type ?? null,
+  );
+  const total = Math.max(0, subtotal - discountCents + shippingCents);
+
+  const freeShippingOnPickup =
+    validDiscount?.type === "free_shipping" && fulfillmentMethod === "pickup";
+
+  const handleCheckout = async () => {
+    if (items.length === 0 || checkoutLoading) return;
+    setCheckoutError(null);
+    setCheckoutLoading(true);
+    const result = await requestCheckout({
+      items: items.map((i) => ({
+        product_id: i.productId,
+        quantity: i.quantity,
+      })),
+      discount_code: validDiscount
+        ? (validDiscount.normalized_code ?? discountCode)
+        : null,
+      fulfillment_method: fulfillmentMethod,
+    });
+    if (result.url) {
+      // Redirect to Stripe Checkout. Cart is cleared on the success page only.
+      window.location.href = result.url;
+      return;
+    }
+    setCheckoutError(result.error ?? "Checkout failed. Please try again.");
+    setCheckoutLoading(false);
+  };
+
+  const fulfillmentOptions: { value: FulfillmentMethod; label: string; note: string; enabled: boolean }[] =
+    [
+      {
+        value: "shipping",
+        label: "Ship within Canada",
+        note: formatMoney(FLAT_SHIPPING_CENTS),
+        enabled: SHIPPING_ENABLED,
+      },
+      {
+        value: "pickup",
+        label: "Local pickup in Montreal",
+        note: "Free",
+        enabled: LOCAL_PICKUP_ENABLED,
+      },
+    ];
 
   return (
     <>
@@ -171,6 +228,45 @@ export function CartDrawer() {
         {/* Summary */}
         {mounted && items.length > 0 ? (
           <div className="space-y-4 border-t border-cream-300 bg-white px-5 py-5">
+            {/* Fulfillment method */}
+            <div>
+              <p className="mb-2 text-sm font-medium text-brand-900">
+                Delivery method
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                {fulfillmentOptions
+                  .filter((o) => o.enabled)
+                  .map((opt) => {
+                    const active = fulfillmentMethod === opt.value;
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setFulfillmentMethod(opt.value)}
+                        aria-pressed={active}
+                        className={`rounded-2xl border px-3 py-2 text-left text-sm transition-colors ${
+                          active
+                            ? "border-brand-500 bg-cream-100 ring-1 ring-brand-400"
+                            : "border-cream-300 bg-white hover:bg-cream-50"
+                        }`}
+                      >
+                        <span className="block font-medium text-brand-900">
+                          {opt.label}
+                        </span>
+                        <span className="block text-xs text-brand-800/60">
+                          {opt.note}
+                        </span>
+                      </button>
+                    );
+                  })}
+              </div>
+              {freeShippingOnPickup ? (
+                <p className="mt-2 text-xs text-green-700">
+                  Your code makes shipping free — but pickup is already free!
+                </p>
+              ) : null}
+            </div>
+
             <DiscountCodeInput />
 
             <dl className="space-y-1.5 text-sm">
@@ -184,22 +280,36 @@ export function CartDrawer() {
                   <dd>−{formatMoney(discountCents)}</dd>
                 </div>
               ) : null}
+              <div className="flex justify-between text-brand-800/80">
+                <dt>
+                  {fulfillmentMethod === "pickup" ? "Pickup" : "Shipping"}
+                </dt>
+                <dd>
+                  {shippingCents === 0 ? "Free" : formatMoney(shippingCents)}
+                </dd>
+              </div>
               <div className="flex justify-between border-t border-cream-200 pt-2 text-base font-bold text-brand-900">
                 <dt>Estimated total</dt>
                 <dd>{formatMoney(total)}</dd>
               </div>
             </dl>
 
+            {checkoutError ? (
+              <p className="text-sm text-red-600" role="alert">
+                {checkoutError}
+              </p>
+            ) : null}
+
             <button
               type="button"
-              disabled
+              onClick={handleCheckout}
+              disabled={checkoutLoading}
               className="store-btn-primary w-full"
-              title="Secure checkout will be added in Phase 3."
             >
-              Checkout coming next
+              {checkoutLoading ? "Starting checkout…" : "Checkout"}
             </button>
             <p className="text-center text-xs text-brand-800/60">
-              🔒 Secure checkout will be added in Phase 3.
+              🔒 Secure payment with Stripe · prices in CAD
             </p>
           </div>
         ) : null}

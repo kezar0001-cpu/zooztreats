@@ -28,40 +28,22 @@ export async function getDiscountById(
   return (data as DiscountCode) ?? null;
 }
 
-// --- Public validation (server-side only) ----------------------------------
+// --- Validation (server-side only) -----------------------------------------
 
 function invalid(message: string): DiscountValidation {
   return { valid: false, message, discount_cents: 0 };
 }
 
-// Computes the discount for a code against a subtotal. Runs server-side only
-// (used by the validation API route and, in Phase 3, the checkout). The
-// discount_codes table is never exposed to the browser: this looks up a single
-// code via the SECURITY DEFINER `find_discount_code` function.
-export async function validateDiscountCode(
-  rawCode: string,
+// Pure evaluation of a discount row against a subtotal. Shared by the public
+// validation API and the checkout API so the displayed and charged amounts are
+// computed identically.
+export function evaluateDiscount(
+  discount: DiscountCode | null,
   subtotalCents: number,
-): Promise<DiscountValidation> {
-  const code = (rawCode ?? "").trim().toUpperCase();
-  if (!code) return invalid("Enter a discount code.");
+): DiscountValidation {
   if (!Number.isFinite(subtotalCents) || subtotalCents < 0) {
     return invalid("Invalid cart subtotal.");
   }
-
-  const supabase = await createClient();
-  const { data, error } = await supabase.rpc("find_discount_code", {
-    p_code: code,
-  });
-
-  if (error) {
-    return invalid("Could not validate this code right now.");
-  }
-
-  // The function returns a single row (or null).
-  const discount = (Array.isArray(data) ? data[0] : data) as
-    | DiscountCode
-    | null;
-
   if (!discount) return invalid("That code doesn't exist.");
   if (!discount.active) return invalid("This code is no longer active.");
 
@@ -95,7 +77,7 @@ export async function validateDiscountCode(
       message = `${formatMoney(discountCents)} off applied.`;
       break;
     case "free_shipping":
-      discountCents = 0; // shipping is calculated at checkout (Phase 3)
+      discountCents = 0; // shipping is zeroed at checkout when shipping is chosen
       message = "Free shipping will be applied at checkout.";
       break;
   }
@@ -109,6 +91,34 @@ export async function validateDiscountCode(
     discount_cents: discountCents,
     type: discount.type,
   };
+}
+
+// Computes the discount for a code against a subtotal. Runs server-side only
+// (used by the public validation API route). The discount_codes table is never
+// exposed to the browser: this looks up a single code via the SECURITY DEFINER
+// `find_discount_code` function.
+export async function validateDiscountCode(
+  rawCode: string,
+  subtotalCents: number,
+): Promise<DiscountValidation> {
+  const code = (rawCode ?? "").trim().toUpperCase();
+  if (!code) return invalid("Enter a discount code.");
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("find_discount_code", {
+    p_code: code,
+  });
+
+  if (error) {
+    return invalid("Could not validate this code right now.");
+  }
+
+  // The function returns a single row (or null).
+  const discount = (Array.isArray(data) ? data[0] : data) as
+    | DiscountCode
+    | null;
+
+  return evaluateDiscount(discount, subtotalCents);
 }
 
 export async function getDiscountCount(): Promise<number> {

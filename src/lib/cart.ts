@@ -3,6 +3,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { CartItem, DiscountValidation, StoreProduct } from "@/types/store";
+import type { FulfillmentMethod } from "@/lib/types";
 
 const MAX_QTY = 99;
 
@@ -14,14 +15,16 @@ function clampQty(qty: number): number {
 interface CartState {
   items: CartItem[];
   isOpen: boolean;
-  // Applied discount (display-only; recalculated at checkout in Phase 3).
+  // Applied discount (display-only; recalculated at checkout server-side).
   discountCode: string | null;
   discount: DiscountValidation | null;
+  fulfillmentMethod: FulfillmentMethod;
 
   // UI
   openCart: () => void;
   closeCart: () => void;
   toggleCart: () => void;
+  setFulfillmentMethod: (method: FulfillmentMethod) => void;
 
   // Items
   addItem: (product: StoreProduct, quantity?: number) => void;
@@ -46,10 +49,12 @@ export const useCart = create<CartState>()(
       isOpen: false,
       discountCode: null,
       discount: null,
+      fulfillmentMethod: "shipping",
 
       openCart: () => set({ isOpen: true }),
       closeCart: () => set({ isOpen: false }),
       toggleCart: () => set((s) => ({ isOpen: !s.isOpen })),
+      setFulfillmentMethod: (method) => set({ fulfillmentMethod: method }),
 
       addItem: (product, quantity = 1) =>
         set((s) => {
@@ -118,8 +123,11 @@ export const useCart = create<CartState>()(
     }),
     {
       name: "zooz-cart",
-      // Only persist the line items; UI + discount state are recomputed at runtime.
-      partialize: (state) => ({ items: state.items }),
+      // Persist line items + fulfillment choice; UI + discount are recomputed.
+      partialize: (state) => ({
+        items: state.items,
+        fulfillmentMethod: state.fulfillmentMethod,
+      }),
     },
   ),
 );
@@ -130,6 +138,29 @@ export const selectItemCount = (s: CartState): number =>
 
 export const selectSubtotalCents = (s: CartState): number =>
   s.items.reduce((sum, i) => sum + i.priceCents * i.quantity, 0);
+
+// Client helper: start checkout. Sends only product ids + quantities (and the
+// code/fulfillment choice). The server recalculates all prices and totals.
+export async function requestCheckout(input: {
+  items: { product_id: string; quantity: number }[];
+  discount_code: string | null;
+  fulfillment_method: FulfillmentMethod;
+}): Promise<{ url?: string; error?: string }> {
+  try {
+    const res = await fetch("/api/checkout", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    });
+    const data = (await res.json()) as { url?: string; error?: string };
+    if (!res.ok || !data.url) {
+      return { error: data.error ?? "Checkout failed. Please try again." };
+    }
+    return { url: data.url };
+  } catch {
+    return { error: "Checkout failed. Please check your connection." };
+  }
+}
 
 // Client helper: ask the server to validate a discount code for a subtotal.
 // The discount_codes table is never exposed to the browser — this hits the

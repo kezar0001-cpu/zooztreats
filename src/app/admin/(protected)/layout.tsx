@@ -11,6 +11,7 @@ export default async function ProtectedAdminLayout({
   const navItems = [
     { href: "/admin", label: "Dashboard" },
     { href: "/admin/products", label: "Products" },
+    { href: "/admin/orders", label: "Orders" },
     { href: "/admin/discounts", label: "Discounts" },
   ];
 

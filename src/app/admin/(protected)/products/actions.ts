@@ -8,7 +8,9 @@ import {
   productSchema,
   dollarsToCents,
   MAX_IMAGE_BYTES,
+  MAX_IMAGE_MB,
   ALLOWED_IMAGE_TYPES,
+  ALLOWED_IMAGE_EXTENSIONS,
 } from "@/lib/validation";
 import {
   uploadProductImage,
@@ -214,15 +216,22 @@ export async function uploadProductImages(
     return { ok: false, error: "Please choose at least one image." };
   }
 
-  // Server-side validation of every file.
+  // Server-side validation of every file (do not trust the client).
   for (const file of files) {
     if (file.size > MAX_IMAGE_BYTES) {
-      return { ok: false, error: `"${file.name}" is larger than 5 MB.` };
-    }
-    if (!ALLOWED_IMAGE_TYPES.includes(file.type as (typeof ALLOWED_IMAGE_TYPES)[number])) {
       return {
         ok: false,
-        error: `"${file.name}" is not a supported image type (JPEG, PNG, WEBP, GIF).`,
+        error: `"${file.name}" is larger than ${MAX_IMAGE_MB} MB.`,
+      };
+    }
+    if (
+      !ALLOWED_IMAGE_TYPES.includes(
+        file.type as (typeof ALLOWED_IMAGE_TYPES)[number],
+      )
+    ) {
+      return {
+        ok: false,
+        error: `"${file.name}" is not a supported image type (${ALLOWED_IMAGE_EXTENSIONS}).`,
       };
     }
   }
@@ -258,11 +267,14 @@ export async function uploadProductImages(
       existing += 1;
     }
   } catch (e) {
-    // Best-effort rollback of uploaded storage objects.
+    // Best-effort rollback of uploaded storage objects. Log a safe message
+    // (never secrets) so the failure is diagnosable without crashing the page.
+    console.error("[uploadProductImages] failed:", (e as Error)?.message);
     await deleteStorageObjects(uploadedPaths);
     return {
       ok: false,
-      error: e instanceof Error ? e.message : "Image upload failed.",
+      error:
+        "We couldn't upload your image. Please try again with a smaller JPEG, PNG or WEBP.",
     };
   }
 
