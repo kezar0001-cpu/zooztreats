@@ -185,7 +185,7 @@ NEXT_PUBLIC_SITE_URL=http://localhost:3000
 # Transactional email — OFF by default (no setup required)
 EMAIL_PROVIDER=none
 
-# Background jobs (abandoned-order cleanup cron)
+# Background jobs — only needed if you call the abandoned-order cleanup endpoint
 CRON_SECRET=<random-string>
 ```
 
@@ -198,8 +198,27 @@ need Resend or a verified email domain. To add custom email later, set
 `EMAIL_PROVIDER=resend` and provide `RESEND_API_KEY`, `EMAIL_FROM`, and
 `ORDER_NOTIFICATION_EMAIL`; the code path already exists.
 
-The cron secret protects `/api/cron/reap-pending`, which deletes abandoned
-`pending` orders hourly (configured in `vercel.json`).
+**Abandoned-order cleanup** is implemented at `/api/cron/reap-pending` (deletes
+`pending` orders older than 6 hours) but is **not scheduled by default** — there
+is intentionally no `vercel.json` cron entry, since hourly crons aren't available
+on Vercel's Hobby plan. The endpoint is safe to leave deployed: without
+`CRON_SECRET` it returns a 503 and never deletes anything, and with `CRON_SECRET`
+set it requires `Authorization: Bearer <CRON_SECRET>`. It does not affect normal
+storefront/admin/checkout operation.
+
+To enable scheduled cleanup later, set `CRON_SECRET` and add a `vercel.json` at
+the repo root (Vercel automatically sends the bearer token):
+
+```json
+{
+  "crons": [
+    {
+      "path": "/api/cron/reap-pending",
+      "schedule": "0 * * * *"
+    }
+  ]
+}
+```
 
 ### Stripe payment receipts
 
