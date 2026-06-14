@@ -175,6 +175,19 @@ export async function POST(request: Request) {
       } else {
         await base.eq("stripe_session_id", session.id);
       }
+    } else if (event.type === "charge.refunded") {
+      // Sync refunds initiated from the Stripe dashboard (or our own action).
+      const charge = event.data.object as Stripe.Charge;
+      const pi =
+        typeof charge.payment_intent === "string"
+          ? charge.payment_intent
+          : (charge.payment_intent?.id ?? null);
+      if (pi) {
+        await admin
+          .from("orders")
+          .update({ payment_status: "refunded", order_status: "refunded" })
+          .eq("stripe_payment_intent_id", pi);
+      }
     }
 
     return NextResponse.json({ received: true });
