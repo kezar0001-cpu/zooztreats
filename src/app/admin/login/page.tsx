@@ -1,4 +1,5 @@
 import { LoginForm } from "@/components/admin/LoginForm";
+import { BrandLogo } from "@/components/brand/BrandLogo";
 
 export const dynamic = "force-dynamic";
 
@@ -15,9 +16,12 @@ export default async function AdminLoginPage({
       : undefined;
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-brand-50 px-4">
+    <main className="flex min-h-screen items-center justify-center bg-gradient-to-b from-blush-50 to-cream-100 px-4">
       <div className="w-full max-w-sm">
         <div className="mb-6 text-center">
+          <div className="mx-auto mb-3">
+            <BrandLogo size={72} priority />
+          </div>
           <h1 className="text-2xl font-bold text-brand-700">Zooz Treats</h1>
           <p className="mt-1 text-sm text-gray-500">Admin sign in</p>
         </div>

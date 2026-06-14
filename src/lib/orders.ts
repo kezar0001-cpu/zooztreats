@@ -173,16 +173,17 @@ export async function getOrderByToken(
 // Looks up the order token for a completed Stripe session so the success page
 // can link the buyer to their status page. Uses the service role (orders are not
 // readable by anon).
-export async function getOrderTokenBySession(
+export async function getOrderRefBySession(
   sessionId: string,
-): Promise<string | null> {
+): Promise<{ token: string; id: string } | null> {
   const admin = createAdminClient();
   const { data } = await admin
     .from("orders")
-    .select("order_token")
+    .select("id, order_token")
     .eq("stripe_session_id", sessionId)
     .maybeSingle();
-  return (data?.order_token as string) ?? null;
+  if (!data?.order_token) return null;
+  return { token: data.order_token as string, id: data.id as string };
 }
 
 export async function getOrderById(id: string): Promise<OrderWithItems | null> {

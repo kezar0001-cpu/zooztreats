@@ -3,7 +3,7 @@ import type Stripe from "stripe";
 import { getStripe } from "@/lib/stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { env } from "@/lib/env";
-import { sendOrderConfirmation } from "@/lib/email";
+import { sendOrderConfirmation, emailEnabled } from "@/lib/email";
 import type { Order, OrderItem } from "@/lib/types";
 
 function orderStatusUrl(token: string | null): string | undefined {
@@ -142,8 +142,10 @@ export async function POST(request: Request) {
       }
 
       // Send the confirmation email exactly once. The boolean flag is the
-      // atomic guard: only the update that flips false->true sends. Email
-      // failures are logged but never fail the webhook.
+      // atomic guard: only the update that flips false->true sends. Skipped
+      // entirely when EMAIL_PROVIDER=none. Email failures are logged but never
+      // fail the webhook.
+      if (emailEnabled()) {
       const { data: emailClaim } = await admin
         .from("orders")
         .update({ confirmation_email_sent: true })
@@ -170,6 +172,7 @@ export async function POST(request: Request) {
             (e as Error)?.message,
           );
         }
+      }
       }
     } else if (event.type === "checkout.session.expired") {
       const session = event.data.object as Stripe.Checkout.Session;

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useCart, selectItemCount } from "@/lib/cart";
+import { BrandLogo } from "@/components/brand/BrandLogo";
 
 const NAV = [
   { href: "#menu", label: "Menu" },
@@ -32,9 +33,7 @@ export function Header() {
     <header className="sticky top-0 z-40 border-b border-cream-300 bg-cream-50/90 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
         <a href="#top" className="flex items-center gap-2">
-          <span className="text-xl" aria-hidden>
-            🍪
-          </span>
+          <BrandLogo size={40} priority />
           <span className="font-serif text-lg font-bold text-brand-800">
             Zooz Treats
           </span>
@@ -56,7 +55,7 @@ export function Header() {
           <button
             type="button"
             onClick={openCart}
-            className="relative inline-flex items-center gap-2 rounded-full bg-brand-600 px-4 py-2 text-sm font-semibold text-white shadow-soft transition-colors hover:bg-brand-700"
+            className="relative inline-flex items-center gap-2 rounded-full bg-brand-600 px-4 py-2 text-sm font-semibold text-cream-50 shadow-soft transition-colors hover:bg-brand-700"
             aria-label={`Open cart${mounted && itemCount > 0 ? `, ${itemCount} items` : ""}`}
           >
             <span aria-hidden>🛒</span>

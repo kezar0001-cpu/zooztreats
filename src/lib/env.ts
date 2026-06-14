@@ -57,9 +57,13 @@ export const env = {
     return process.env.NEXT_PUBLIC_SITE_URL?.trim() || undefined;
   },
 
-  // --- Transactional email (optional) ---
-  // When RESEND_API_KEY is unset, email sending is skipped gracefully so the
-  // store keeps working without an email provider configured.
+  // --- Transactional email ---
+  // Email is OFF by default. The store relies on Stripe receipts + the order
+  // status page instead of custom email. Set EMAIL_PROVIDER=resend (and the
+  // Resend vars) to opt in later. Recognized values: "none" | "resend".
+  get emailProvider(): "none" | "resend" {
+    return process.env.EMAIL_PROVIDER?.trim() === "resend" ? "resend" : "none";
+  },
   get resendApiKey(): string | undefined {
     return process.env.RESEND_API_KEY?.trim() || undefined;
   },

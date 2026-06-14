@@ -182,10 +182,8 @@ STRIPE_WEBHOOK_SECRET=whsec_...
 NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...
 NEXT_PUBLIC_SITE_URL=http://localhost:3000
 
-# Transactional email (optional — order confirmations & status updates)
-RESEND_API_KEY=re_...
-EMAIL_FROM=Zooz Treats <orders@zooztreats.com>
-ORDER_NOTIFICATION_EMAIL=owner@zooztreats.com
+# Transactional email — OFF by default (no setup required)
+EMAIL_PROVIDER=none
 
 # Background jobs (abandoned-order cleanup cron)
 CRON_SECRET=<random-string>
@@ -193,10 +191,23 @@ CRON_SECRET=<random-string>
 
 `ADMIN_EMAILS` is a **comma-separated** list of allowed admin emails.
 
-Email is **optional**: if `RESEND_API_KEY` is empty the store works normally but
-no confirmation/status emails are sent. The cron secret protects
-`/api/cron/reap-pending`, which deletes abandoned `pending` orders hourly
-(configured in `vercel.json`).
+**Email is disabled by default (`EMAIL_PROVIDER=none`).** The store does not send
+any custom email — customers get a **Stripe payment receipt** and a **secure
+order status link** (`/orders/[token]`) shown on the success page. You do **not**
+need Resend or a verified email domain. To add custom email later, set
+`EMAIL_PROVIDER=resend` and provide `RESEND_API_KEY`, `EMAIL_FROM`, and
+`ORDER_NOTIFICATION_EMAIL`; the code path already exists.
+
+The cron secret protects `/api/cron/reap-pending`, which deletes abandoned
+`pending` orders hourly (configured in `vercel.json`).
+
+### Stripe payment receipts
+
+The app uses Stripe Checkout, which **collects the customer's email**, so Stripe
+can email the payment receipt. Receipts are controlled by a Stripe account
+setting — **enable payment receipt emails in the Stripe Dashboard for the Zooz
+Treats account** (Settings → Payments → *Customer emails* → "Successful
+payments"). In test mode, receipts are only sent for test payments when enabled.
 
 | Variable | Where to find it | Exposed to browser? |
 | --- | --- | --- |
@@ -207,10 +218,9 @@ no confirmation/status emails are sent. The cron secret protects
 | `STRIPE_WEBHOOK_SECRET` | `stripe listen` or Dashboard webhook | **No** |
 | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Stripe → Developers → API keys | Yes |
 | `NEXT_PUBLIC_SITE_URL` | Your app URL | Yes |
-| `RESEND_API_KEY` | Resend → API Keys (optional) | **No** |
-| `EMAIL_FROM` | Verified Resend sender (optional) | **No** |
-| `ORDER_NOTIFICATION_EMAIL` | Owner inbox for new orders (optional) | **No** |
+| `EMAIL_PROVIDER` | `none` (default) or `resend` | **No** |
 | `CRON_SECRET` | Any random string (optional) | **No** |
+| `RESEND_API_KEY` / `EMAIL_FROM` / `ORDER_NOTIFICATION_EMAIL` | Only if `EMAIL_PROVIDER=resend` | **No** |
 
 ## 6. Local development
 

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getOrderByToken } from "@/lib/orders";
 import { formatMoney } from "@/lib/money";
 import { formatDate } from "@/lib/format";
+import { BrandLogo } from "@/components/brand/BrandLogo";
 
 export const dynamic = "force-dynamic";
 
@@ -69,10 +70,10 @@ export default async function OrderStatusPage({
     <main className="min-h-screen bg-gradient-to-b from-blush-50 to-cream-100 px-4 py-12">
       <div className="mx-auto max-w-lg space-y-6">
         <div className="text-center">
-          <span className="text-3xl" aria-hidden>
-            🍪
-          </span>
-          <h1 className="mt-2 font-serif text-2xl font-bold text-brand-900">
+          <div className="mx-auto">
+            <BrandLogo size={64} priority />
+          </div>
+          <h1 className="mt-3 font-serif text-2xl font-bold text-brand-900">
             Order #{order.id.slice(0, 8)}
           </h1>
           <p className="mt-1 text-sm text-brand-800/70">
@@ -205,8 +206,8 @@ export default async function OrderStatusPage({
         </div>
 
         <div className="text-center">
-          <Link href="/" className="store-btn-secondary inline-flex">
-            Back to store
+          <Link href="/" className="store-btn-primary inline-flex">
+            Back to home
           </Link>
         </div>
       </div>

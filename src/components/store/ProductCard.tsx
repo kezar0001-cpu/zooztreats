@@ -51,7 +51,7 @@ export function ProductCard({ product }: { product: StoreProduct }) {
         </div>
 
         {product.category ? (
-          <span className="mt-1 inline-block w-fit rounded-full bg-blush-100 px-2.5 py-0.5 text-xs font-medium text-blush-500">
+          <span className="mt-1 inline-block w-fit rounded-full bg-caramel-100 px-2.5 py-0.5 text-xs font-medium text-brand-700">
             {product.category}
           </span>
         ) : null}

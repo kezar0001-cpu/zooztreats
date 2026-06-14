@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200" role="img" aria-label="Zooz Treats logo">
+  <defs>
+    <linearGradient id="cookie" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#e3a888"/>
+      <stop offset="1" stop-color="#d68d6f"/>
+    </linearGradient>
+  </defs>
+  <!-- Blush badge -->
+  <circle cx="100" cy="100" r="98" fill="#f8e0e0"/>
+  <circle cx="100" cy="100" r="92" fill="none" stroke="#75401b" stroke-width="3"/>
+  <!-- Cookie -->
+  <circle cx="100" cy="78" r="34" fill="url(#cookie)"/>
+  <circle cx="90" cy="70" r="4.5" fill="#532911"/>
+  <circle cx="110" cy="66" r="3.5" fill="#532911"/>
+  <circle cx="106" cy="86" r="4" fill="#532911"/>
+  <circle cx="86" cy="88" r="3.5" fill="#532911"/>
+  <circle cx="116" cy="84" r="3" fill="#532911"/>
+  <!-- Wordmark -->
+  <text x="100" y="135" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="30" font-weight="700" fill="#532911">Zooz</text>
+  <text x="100" y="160" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="17" letter-spacing="3" fill="#75401b">TREATS</text>
+</svg>

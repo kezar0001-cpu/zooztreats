@@ -16,13 +16,22 @@ interface SendEmailInput {
   replyTo?: string;
 }
 
+// Whether custom transactional email is enabled. Off by default
+// (EMAIL_PROVIDER=none) — the app uses Stripe receipts + the order status page.
+export function emailEnabled(): boolean {
+  return env.emailProvider !== "none";
+}
+
 // Low-level send. Returns true on success. Never throws — callers (e.g. the
-// Stripe webhook) must not fail because an email could not be delivered.
+// Stripe webhook) must not fail because email is disabled or undeliverable.
 async function sendEmail(input: SendEmailInput): Promise<boolean> {
+  // EMAIL_PROVIDER=none: never attempt to send (and never touch Resend).
+  if (env.emailProvider === "none") return false;
+
   const apiKey = env.resendApiKey;
   if (!apiKey) {
     console.warn(
-      "[email] RESEND_API_KEY is not set — skipping email:",
+      "[email] EMAIL_PROVIDER=resend but RESEND_API_KEY is not set — skipping:",
       input.subject,
     );
     return false;
@@ -180,6 +189,8 @@ export async function sendOrderConfirmation(
   items: OrderItem[],
   opts: { statusUrl?: string } = {},
 ): Promise<boolean> {
+  if (!emailEnabled()) return false;
+
   let customerSent = false;
 
   if (order.customer_email) {
@@ -216,6 +227,7 @@ export async function sendOrderStatusUpdate(
   items: OrderItem[],
   opts: { statusUrl?: string } = {},
 ): Promise<boolean> {
+  if (!emailEnabled()) return false;
   if (!order.customer_email) return false;
 
   const messages: Record<string, { heading: string; intro: string }> = {

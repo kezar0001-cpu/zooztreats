@@ -120,7 +120,7 @@ export default async function ProductDetailPage({
           {/* Info */}
           <div>
             {product.category ? (
-              <span className="inline-block rounded-full bg-blush-100 px-2.5 py-0.5 text-xs font-medium text-blush-500">
+              <span className="inline-block rounded-full bg-caramel-100 px-2.5 py-0.5 text-xs font-medium text-brand-700">
                 {product.category}
               </span>
             ) : null}
