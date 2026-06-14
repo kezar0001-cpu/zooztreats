@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { Toaster } from "@/components/Toaster";
 
 const siteUrl =
   process.env.NEXT_PUBLIC_SITE_URL?.trim() || "http://localhost:3000";
@@ -59,6 +60,7 @@ export default function RootLayout({
     <html lang="en">
       <body>
         {children}
+        <Toaster />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}

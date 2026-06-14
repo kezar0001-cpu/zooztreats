@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useCart } from "@/lib/cart";
+import { toast } from "@/lib/toast";
 import { formatMoney } from "@/lib/money";
 import { ProductImage } from "./ProductImage";
 import { QuantitySelector } from "./QuantitySelector";
@@ -16,6 +17,7 @@ export function ProductCard({ product }: { product: StoreProduct }) {
 
   const handleAdd = () => {
     addItem(product, qty);
+    toast(`${product.name} added to cart`);
     setQty(1);
     setAdded(true);
     openCart();

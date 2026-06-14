@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useCart } from "@/lib/cart";
+import { toast } from "@/lib/toast";
 import { QuantitySelector } from "./QuantitySelector";
 import type { StoreProduct } from "@/types/store";
 
@@ -14,6 +15,7 @@ export function AddToCartButton({ product }: { product: StoreProduct }) {
 
   const handleAdd = () => {
     addItem(product, qty);
+    toast(`${product.name} added to cart`);
     setQty(1);
     setAdded(true);
     openCart();
