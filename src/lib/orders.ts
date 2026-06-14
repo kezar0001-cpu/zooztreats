@@ -1,5 +1,11 @@
 import { createClient } from "@/lib/supabase/server";
-import { ORDER_STATUSES, type Order, type OrderStatus, type OrderWithItems } from "@/lib/types";
+import {
+  ORDER_STATUSES,
+  type FulfillmentMethod,
+  type Order,
+  type OrderStatus,
+  type OrderWithItems,
+} from "@/lib/types";
 
 // Admin reads run through the cookie-based client as the authenticated admin;
 // RLS permits authenticated select/update on orders.
@@ -115,6 +121,66 @@ export async function getOrderStats(): Promise<OrderStats> {
     byStatus,
     recent: (recentRes.data ?? []) as Order[],
   };
+}
+
+// Safe, customer-visible order shape returned by the public token lookup.
+export interface PublicOrderItem {
+  product_name: string;
+  quantity: number;
+  unit_price_cents: number;
+  total_cents: number;
+}
+
+export interface PublicOrder {
+  id: string;
+  created_at: string;
+  fulfillment_method: FulfillmentMethod;
+  order_status: OrderStatus;
+  payment_status: string;
+  customer_name: string | null;
+  subtotal_cents: number;
+  discount_code: string | null;
+  discount_cents: number;
+  shipping_cents: number;
+  total_cents: number;
+  shipping_name: string | null;
+  shipping_line1: string | null;
+  shipping_line2: string | null;
+  shipping_city: string | null;
+  shipping_province: string | null;
+  shipping_postal_code: string | null;
+  shipping_country: string | null;
+  items: PublicOrderItem[];
+}
+
+// Resolves an order for the customer-facing status page via the SECURITY DEFINER
+// `get_order_by_token` function (anon-callable; the token is the secret). Returns
+// only safe presentation fields — never Stripe ids or internal flags.
+export async function getOrderByToken(
+  token: string,
+): Promise<PublicOrder | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("get_order_by_token", {
+    p_token: token,
+  });
+  if (error || !data) return null;
+  return data as PublicOrder;
+}
+
+// Looks up the order token for a completed Stripe session so the success page
+// can link the buyer to their status page. Uses the service role (orders are not
+// readable by anon).
+export async function getOrderTokenBySession(
+  sessionId: string,
+): Promise<string | null> {
+  const { createAdminClient } = await import("@/lib/supabase/admin");
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("orders")
+    .select("order_token")
+    .eq("stripe_session_id", sessionId)
+    .maybeSingle();
+  return (data?.order_token as string) ?? null;
 }
 
 export async function getOrderById(id: string): Promise<OrderWithItems | null> {

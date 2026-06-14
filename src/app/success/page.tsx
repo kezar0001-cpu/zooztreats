@@ -1,11 +1,20 @@
 import Link from "next/link";
 import { ClearCartOnMount } from "@/components/store/ClearCartOnMount";
+import { getOrderTokenBySession } from "@/lib/orders";
 
 export const dynamic = "force-dynamic";
 
-// Order confirmation page. Deliberately does NOT display order details — it only
-// confirms receipt so no sensitive information is exposed publicly.
-export default function SuccessPage() {
+// Order confirmation page. Looks up the order token for the completed Stripe
+// session so the buyer can follow their order status, but never displays
+// sensitive details inline.
+export default async function SuccessPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ session_id?: string }>;
+}) {
+  const { session_id } = await searchParams;
+  const token = session_id ? await getOrderTokenBySession(session_id) : null;
+
   return (
     <main className="flex min-h-screen items-center justify-center bg-gradient-to-b from-blush-50 to-cream-100 px-4">
       <ClearCartOnMount />
@@ -20,11 +29,25 @@ export default function SuccessPage() {
           Zooz Treats has received your order.
         </p>
         <p className="mt-1 text-brand-800/80">
-          You will receive confirmation shortly.
+          A confirmation email is on its way.
         </p>
-        <Link href="/" className="store-btn-primary mt-7 inline-flex">
-          Back to Home
-        </Link>
+        <div className="mt-7 flex flex-col items-center gap-3">
+          {token ? (
+            <Link href={`/orders/${token}`} className="store-btn-primary inline-flex">
+              Track your order
+            </Link>
+          ) : null}
+          <Link
+            href="/"
+            className={
+              token
+                ? "store-btn-secondary inline-flex"
+                : "store-btn-primary inline-flex"
+            }
+          >
+            Back to Home
+          </Link>
+        </div>
       </div>
     </main>
   );

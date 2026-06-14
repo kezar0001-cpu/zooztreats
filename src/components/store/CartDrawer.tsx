@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   useCart,
   selectSubtotalCents,
@@ -39,17 +39,56 @@ export function CartDrawer() {
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
+  const drawerRef = useRef<HTMLElement | null>(null);
+  const closeBtnRef = useRef<HTMLButtonElement | null>(null);
+  const previouslyFocused = useRef<HTMLElement | null>(null);
+
   useEffect(() => setMounted(true), []);
 
-  // Close on Escape.
+  // Close on Escape + trap Tab focus within the drawer while open.
   useEffect(() => {
     if (!isOpen) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") closeCart();
+      if (e.key === "Escape") {
+        closeCart();
+        return;
+      }
+      if (e.key !== "Tab") return;
+
+      const drawer = drawerRef.current;
+      if (!drawer) return;
+      const focusable = drawer.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      );
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement;
+
+      if (e.shiftKey && active === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [isOpen, closeCart]);
+
+  // Move focus into the drawer on open; restore it to the trigger on close.
+  useEffect(() => {
+    if (!mounted) return;
+    if (isOpen) {
+      previouslyFocused.current =
+        (document.activeElement as HTMLElement) ?? null;
+      // Defer so the drawer has transitioned into view and is focusable.
+      const id = window.setTimeout(() => closeBtnRef.current?.focus(), 50);
+      return () => window.clearTimeout(id);
+    }
+    previouslyFocused.current?.focus?.();
+  }, [isOpen, mounted]);
 
   // Lock body scroll while the drawer is open.
   useEffect(() => {
@@ -60,7 +99,9 @@ export function CartDrawer() {
     };
   }, [isOpen, mounted]);
 
-  // Re-validate an applied discount whenever the subtotal changes.
+  // Re-validate an applied discount whenever the subtotal changes. Debounced so
+  // rapid quantity changes collapse into a single request; any in-flight result
+  // is ignored once a newer change arrives.
   useEffect(() => {
     if (!discountCode) return;
     if (items.length === 0) {
@@ -68,11 +109,14 @@ export function CartDrawer() {
       return;
     }
     let cancelled = false;
-    requestDiscountValidation(discountCode, subtotal).then((result) => {
-      if (!cancelled) setDiscount(discountCode, result);
-    });
+    const timer = window.setTimeout(() => {
+      requestDiscountValidation(discountCode, subtotal).then((result) => {
+        if (!cancelled) setDiscount(discountCode, result);
+      });
+    }, 400);
     return () => {
       cancelled = true;
+      window.clearTimeout(timer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [subtotal, discountCode]);
@@ -140,9 +184,11 @@ export function CartDrawer() {
 
       {/* Drawer */}
       <aside
+        ref={drawerRef}
         role="dialog"
         aria-modal="true"
         aria-label="Shopping cart"
+        aria-hidden={!isOpen}
         className={`fixed right-0 top-0 z-50 flex h-full w-full max-w-md flex-col bg-cream-50 shadow-xl transition-transform duration-300 ${
           isOpen ? "translate-x-0" : "translate-x-full"
         }`}
@@ -153,6 +199,7 @@ export function CartDrawer() {
             Your Cart{mounted && itemCount > 0 ? ` (${itemCount})` : ""}
           </h2>
           <button
+            ref={closeBtnRef}
             type="button"
             onClick={closeCart}
             aria-label="Close cart"

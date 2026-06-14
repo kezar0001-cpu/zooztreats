@@ -9,6 +9,7 @@ import { TrustSection } from "@/components/store/TrustSection";
 import { FAQ } from "@/components/store/FAQ";
 import { Footer } from "@/components/store/Footer";
 import { CartDrawer } from "@/components/store/CartDrawer";
+import { CheckoutCancelledNotice } from "@/components/store/CheckoutCancelledNotice";
 
 export const dynamic = "force-dynamic";
 
@@ -67,6 +68,7 @@ export default function HomePage() {
       </main>
       <Footer />
       <CartDrawer />
+      <CheckoutCancelledNotice />
     </div>
   );
 }
