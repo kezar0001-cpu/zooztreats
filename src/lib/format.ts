@@ -1,11 +1,5 @@
-// Presentation helpers.
-
-export function formatCents(cents: number): string {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-  }).format(cents / 100);
-}
+// Presentation helpers. For currency formatting use `formatMoney` from
+// `@/lib/money` (Canadian dollars).
 
 export function centsToDollarsString(cents: number): string {
   return (cents / 100).toFixed(2);
@@ -15,7 +9,7 @@ export function formatDate(value: string | null): string {
   if (!value) return "—";
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleDateString("en-US", {
+  return d.toLocaleDateString("en-CA", {
     year: "numeric",
     month: "short",
     day: "numeric",

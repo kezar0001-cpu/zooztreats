@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import type { Product, ProductImage, ProductWithImages } from "@/lib/types";
+import type { StoreProduct } from "@/types/store";
 
 // Order images so the primary one comes first, then by sort_order.
 function sortImages(images: ProductImage[]): ProductImage[] {
@@ -83,6 +84,49 @@ export function getPrimaryImage(
     product.product_images.find((img) => img.is_primary) ??
     product.product_images[0]
   );
+}
+
+// --- Public storefront -----------------------------------------------------
+
+// Fetches active products for the public storefront, flattened to a primary
+// image. RLS only exposes active products to anonymous visitors; we also filter
+// explicitly. Sorted: featured first, then sort_order, then name.
+export async function getActiveProducts(): Promise<StoreProduct[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("products")
+    .select("*, product_images(*)")
+    .eq("active", true);
+
+  if (error) throw new Error(error.message);
+
+  const rows = [...((data ?? []) as ProductWithImages[])];
+
+  // Sort: featured first, then sort_order, then name.
+  rows.sort((a, b) => {
+    if (a.featured !== b.featured) return a.featured ? -1 : 1;
+    if (a.sort_order !== b.sort_order) return a.sort_order - b.sort_order;
+    return a.name.localeCompare(b.name);
+  });
+
+  return rows.map((p) => {
+    const primary = getPrimaryImage({
+      ...p,
+      product_images: sortImages(p.product_images ?? []),
+    });
+    return {
+      id: p.id,
+      slug: p.slug,
+      name: p.name,
+      description: p.description,
+      category: p.category,
+      prep_time_note: p.prep_time_note,
+      price_cents: p.price_cents,
+      featured: p.featured,
+      image_url: primary?.image_url ?? null,
+      image_alt: primary?.alt_text ?? null,
+    };
+  });
 }
 
 export type { Product };

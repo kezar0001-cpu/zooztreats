@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getProducts, getPrimaryImage } from "@/lib/products";
-import { formatCents } from "@/lib/format";
+import { formatMoney } from "@/lib/money";
 import { Badge } from "@/components/admin/Badge";
 import { ProductThumb } from "@/components/admin/ProductThumb";
 import { SubmitButton } from "@/components/admin/SubmitButton";
@@ -71,7 +71,7 @@ export default async function ProductsPage() {
                         </div>
                       </td>
                       <td className="px-4 py-3 text-gray-700">
-                        {formatCents(product.price_cents)}
+                        {formatMoney(product.price_cents)}
                       </td>
                       <td className="px-4 py-3">
                         {product.active ? (
@@ -143,7 +143,7 @@ export default async function ProductsPage() {
                     <div className="min-w-0 flex-1">
                       <p className="font-medium text-gray-900">{product.name}</p>
                       <p className="text-sm text-gray-500">
-                        {formatCents(product.price_cents)}
+                        {formatMoney(product.price_cents)}
                       </p>
                       <div className="mt-2 flex flex-wrap gap-1.5">
                         {product.active ? (

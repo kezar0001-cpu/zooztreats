@@ -1,0 +1,209 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import {
+  useCart,
+  selectSubtotalCents,
+  selectItemCount,
+  requestDiscountValidation,
+} from "@/lib/cart";
+import { formatMoney } from "@/lib/money";
+import { ProductImage } from "./ProductImage";
+import { QuantitySelector } from "./QuantitySelector";
+import { DiscountCodeInput } from "./DiscountCodeInput";
+
+export function CartDrawer() {
+  const isOpen = useCart((s) => s.isOpen);
+  const closeCart = useCart((s) => s.closeCart);
+  const items = useCart((s) => s.items);
+  const setQuantity = useCart((s) => s.setQuantity);
+  const removeItem = useCart((s) => s.removeItem);
+  const subtotal = useCart(selectSubtotalCents);
+  const itemCount = useCart(selectItemCount);
+  const discount = useCart((s) => s.discount);
+  const discountCode = useCart((s) => s.discountCode);
+  const setDiscount = useCart((s) => s.setDiscount);
+  const clearDiscount = useCart((s) => s.clearDiscount);
+
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  // Close on Escape.
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeCart();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isOpen, closeCart]);
+
+  // Lock body scroll while the drawer is open.
+  useEffect(() => {
+    if (!mounted) return;
+    document.body.style.overflow = isOpen ? "hidden" : "";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [isOpen, mounted]);
+
+  // Re-validate an applied discount whenever the subtotal changes, so percent
+  // discounts stay accurate and minimums are re-checked. Clear it if the cart
+  // empties.
+  useEffect(() => {
+    if (!discountCode) return;
+    if (items.length === 0) {
+      clearDiscount();
+      return;
+    }
+    let cancelled = false;
+    requestDiscountValidation(discountCode, subtotal).then((result) => {
+      if (!cancelled) setDiscount(discountCode, result);
+    });
+    return () => {
+      cancelled = true;
+    };
+    // Intentionally depends on subtotal (recompute) and discountCode (re-apply).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subtotal, discountCode]);
+
+  const discountCents = discount?.valid ? discount.discount_cents : 0;
+  const total = Math.max(0, subtotal - discountCents);
+
+  return (
+    <>
+      {/* Overlay */}
+      <div
+        onClick={closeCart}
+        aria-hidden
+        className={`fixed inset-0 z-40 bg-brand-900/40 transition-opacity duration-300 ${
+          isOpen ? "opacity-100" : "pointer-events-none opacity-0"
+        }`}
+      />
+
+      {/* Drawer */}
+      <aside
+        role="dialog"
+        aria-modal="true"
+        aria-label="Shopping cart"
+        className={`fixed right-0 top-0 z-50 flex h-full w-full max-w-md flex-col bg-cream-50 shadow-xl transition-transform duration-300 ${
+          isOpen ? "translate-x-0" : "translate-x-full"
+        }`}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-cream-300 px-5 py-4">
+          <h2 className="font-serif text-xl font-bold text-brand-900">
+            Your Cart{mounted && itemCount > 0 ? ` (${itemCount})` : ""}
+          </h2>
+          <button
+            type="button"
+            onClick={closeCart}
+            aria-label="Close cart"
+            className="flex h-9 w-9 items-center justify-center rounded-full text-brand-700 transition-colors hover:bg-cream-200"
+          >
+            ✕
+          </button>
+        </div>
+
+        {/* Items */}
+        <div className="flex-1 overflow-y-auto px-5 py-4">
+          {!mounted ? null : items.length === 0 ? (
+            <div className="flex h-full flex-col items-center justify-center text-center">
+              <span className="text-4xl" aria-hidden>
+                🛒
+              </span>
+              <p className="mt-3 font-medium text-brand-900">
+                Your cart is empty
+              </p>
+              <p className="mt-1 text-sm text-brand-800/70">
+                Add some treats to get started.
+              </p>
+              <button
+                type="button"
+                onClick={closeCart}
+                className="store-btn-secondary mt-5 !px-5 !py-2 text-sm"
+              >
+                Browse the menu
+              </button>
+            </div>
+          ) : (
+            <ul className="space-y-4">
+              {items.map((item) => (
+                <li key={item.productId} className="flex gap-3">
+                  <ProductImage
+                    src={item.imageUrl}
+                    alt={item.name}
+                    className="h-20 w-20 shrink-0 rounded-2xl"
+                    sizes="80px"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="font-medium text-brand-900">{item.name}</p>
+                      <button
+                        type="button"
+                        onClick={() => removeItem(item.productId)}
+                        aria-label={`Remove ${item.name}`}
+                        className="shrink-0 text-xs text-brand-700/60 underline hover:text-red-600"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                    <p className="text-sm text-brand-800/70">
+                      {formatMoney(item.priceCents)} each
+                    </p>
+                    <div className="mt-2 flex items-center justify-between">
+                      <QuantitySelector
+                        value={item.quantity}
+                        onChange={(q) => setQuantity(item.productId, q)}
+                        size="sm"
+                      />
+                      <span className="font-semibold text-brand-900">
+                        {formatMoney(item.priceCents * item.quantity)}
+                      </span>
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        {/* Summary */}
+        {mounted && items.length > 0 ? (
+          <div className="space-y-4 border-t border-cream-300 bg-white px-5 py-5">
+            <DiscountCodeInput />
+
+            <dl className="space-y-1.5 text-sm">
+              <div className="flex justify-between text-brand-800/80">
+                <dt>Subtotal</dt>
+                <dd>{formatMoney(subtotal)}</dd>
+              </div>
+              {discountCents > 0 ? (
+                <div className="flex justify-between text-green-700">
+                  <dt>Discount</dt>
+                  <dd>−{formatMoney(discountCents)}</dd>
+                </div>
+              ) : null}
+              <div className="flex justify-between border-t border-cream-200 pt-2 text-base font-bold text-brand-900">
+                <dt>Estimated total</dt>
+                <dd>{formatMoney(total)}</dd>
+              </div>
+            </dl>
+
+            <button
+              type="button"
+              disabled
+              className="store-btn-primary w-full"
+              title="Secure checkout will be added in Phase 3."
+            >
+              Checkout coming next
+            </button>
+            <p className="text-center text-xs text-brand-800/60">
+              🔒 Secure checkout will be added in Phase 3.
+            </p>
+          </div>
+        ) : null}
+      </aside>
+    </>
+  );
+}

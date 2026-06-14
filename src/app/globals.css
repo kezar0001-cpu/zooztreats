@@ -6,6 +6,12 @@
   color-scheme: light;
 }
 
+html {
+  scroll-behavior: smooth;
+  /* Offset anchored sections so the sticky header doesn't cover them. */
+  scroll-padding-top: 5rem;
+}
+
 body {
   @apply bg-gray-50 text-gray-900 antialiased;
 }
@@ -35,5 +41,18 @@ body {
   }
   .admin-card {
     @apply rounded-lg border border-gray-200 bg-white shadow-sm;
+  }
+
+  /* Storefront buttons */
+  .store-btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-6 py-3
+      text-base font-semibold transition-colors disabled:cursor-not-allowed
+      disabled:opacity-60;
+  }
+  .store-btn-primary {
+    @apply store-btn bg-brand-600 text-white shadow-soft hover:bg-brand-700;
+  }
+  .store-btn-secondary {
+    @apply store-btn border border-brand-200 bg-white text-brand-700 hover:bg-cream-100;
   }
 }

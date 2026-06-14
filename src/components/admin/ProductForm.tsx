@@ -107,7 +107,7 @@ export function ProductForm({
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
           <div>
             <label htmlFor="price" className="admin-label">
-              Price (USD)
+              Price (CAD)
             </label>
             <div className="relative">
               <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">

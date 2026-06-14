@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getDiscounts, getDiscountById } from "@/lib/discounts";
-import { formatCents, formatDate } from "@/lib/format";
+import { formatDate } from "@/lib/format";
+import { formatMoney } from "@/lib/money";
 import { Badge } from "@/components/admin/Badge";
 import { DiscountForm } from "@/components/admin/DiscountForm";
 import { SubmitButton } from "@/components/admin/SubmitButton";
@@ -19,7 +20,7 @@ function describeValue(d: DiscountCode): string {
     case "percent":
       return `${d.value}% off`;
     case "fixed":
-      return `${formatCents(d.value)} off`;
+      return `${formatMoney(d.value)} off`;
     case "free_shipping":
       return "Free shipping";
   }
@@ -108,7 +109,7 @@ export default async function DiscountsPage({
                       </td>
                       <td className="px-4 py-3 text-gray-700">
                         {d.min_order_cents > 0
-                          ? formatCents(d.min_order_cents)
+                          ? formatMoney(d.min_order_cents)
                           : "—"}
                       </td>
                       <td className="px-4 py-3 text-gray-700">

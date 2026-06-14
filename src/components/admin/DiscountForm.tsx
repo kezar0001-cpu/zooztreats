@@ -87,7 +87,7 @@ export function DiscountForm({
       {type !== "free_shipping" ? (
         <div>
           <label htmlFor="value" className="admin-label">
-            {type === "percent" ? "Percentage off" : "Amount off (USD)"}
+            {type === "percent" ? "Percentage off" : "Amount off (CAD)"}
           </label>
           <input
             id="value"
@@ -108,7 +108,7 @@ export function DiscountForm({
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
         <div>
           <label htmlFor="min_order" className="admin-label">
-            Minimum order (USD)
+            Minimum order (CAD)
           </label>
           <input
             id="min_order"

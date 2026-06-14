@@ -1,20 +1,37 @@
-# Zooz Treats — Admin Backend (Phase 1)
+# Zooz Treats — Bakery Storefront & Admin
 
-A simple ecommerce backend and admin dashboard for the **Zooz Treats** home
-bakery. Phase 1 covers the database, authentication, product management, image
-upload, and discount code management. (Stripe checkout and the customer-facing
-storefront come in later phases.)
+A simple ecommerce site for the **Zooz Treats** home bakery in Montreal.
+Prices are in **Canadian dollars (CAD)**.
+
+- **Phase 1** — admin backend: database, authentication, product management,
+  image upload, and discount code management.
+- **Phase 2** — public one-page storefront: live product menu, cart drawer with
+  localStorage persistence, and server-side discount code validation.
+- **Phase 3 (not yet built)** — Stripe checkout.
 
 ## Tech stack
 
 - **Next.js 15** (App Router) + **TypeScript**
 - **Tailwind CSS**
 - **Supabase** — Postgres database, Auth, and Storage
+- **Zustand** for cart state (persisted to localStorage)
 - **Zod** for server-side validation
 - Vercel-ready
 
 ## Features
 
+**Storefront (`/`)**
+- One-page warm, mobile-first bakery landing page
+- Product menu loaded live from Supabase (only **active** products; primary image
+  or a placeholder), sorted featured → sort_order → name
+- Sticky header with cart count, hero, How It Works, trust, and FAQ sections
+- Slide-out cart drawer: quantity controls, remove, subtotal, discount code, and
+  estimated total — all in CAD. Cart persists across refresh.
+- Discount validation via a server API route (the `discount_codes` table is
+  never exposed to the browser)
+- Checkout is a disabled placeholder ("Secure checkout will be added in Phase 3")
+
+**Admin (`/admin`)**
 - Admin authentication via Supabase Auth, restricted to emails in `ADMIN_EMAILS`
 - All `/admin` routes protected by middleware **and** server-side guards
 - Dashboard with product/discount counts and quick actions
@@ -22,19 +39,26 @@ storefront come in later phases.)
 - Image upload to Supabase Storage with primary-image selection, reordering, and deletion
 - Discount code management: percent / fixed / free shipping, min order, expiry, max redemptions
 - Server-side validation on every mutation (frontend validation is not trusted)
-- Loading, error, and success states throughout
 
 ## Routes
 
 | Route | Description |
 | --- | --- |
-| `/` | Placeholder store landing page |
+| `/` | Public storefront (live products + cart) |
+| `/api/discount/validate` | POST — server-side discount validation (display only) |
 | `/admin/login` | Admin sign in |
 | `/admin` | Dashboard home |
 | `/admin/products` | Product list (table on desktop, cards on mobile) |
 | `/admin/products/new` | Create a product |
 | `/admin/products/[id]/edit` | Edit a product + manage images |
 | `/admin/discounts` | Manage discount codes |
+
+## Currency
+
+All prices are stored as integer **cents** and displayed in CAD via
+`src/lib/money.ts` (`formatMoney`, `STORE_CURRENCY`, `STORE_STRIPE_CURRENCY`,
+`STORE_LOCALE`). `1800` renders as `CA$18.00`; a `500` fixed discount is
+`CA$5.00`.
 
 ---
 
@@ -47,14 +71,19 @@ storefront come in later phases.)
 
 ## 2. Apply the database schema
 
-The schema lives in `supabase/migrations/0001_init.sql`. It creates the
-`products`, `product_images`, and `discount_codes` tables, RLS policies, and the
-`product-images` Storage bucket.
+There are two migrations in `supabase/migrations/`:
+
+- `0001_init.sql` — creates the `products`, `product_images`, and
+  `discount_codes` tables, RLS policies, and the `product-images` Storage bucket.
+- `0002_discount_lookup.sql` — adds the `find_discount_code` SECURITY DEFINER
+  function used by the storefront to validate a single discount code without
+  exposing the `discount_codes` table to anonymous visitors. **Required for the
+  storefront discount field to work.**
 
 **Option A — Supabase SQL Editor (quickest):**
-Open the SQL Editor in the Supabase dashboard, paste the contents of
-`supabase/migrations/0001_init.sql`, and run it. Then paste and run
-`supabase/seed.sql` to add the starter products and discount codes.
+Open the SQL Editor in the Supabase dashboard and run, in order:
+`0001_init.sql`, then `0002_discount_lookup.sql`, then `supabase/seed.sql`
+(starter products and discount codes).
 
 **Option B — Supabase CLI (recommended for ongoing work):**
 
@@ -141,12 +170,14 @@ npm run typecheck   # tsc --noEmit
 
 ```
 supabase/
-  migrations/0001_init.sql   # tables, RLS, storage bucket + policies
-  seed.sql                   # starter products & discount codes
-  config.toml                # local CLI config
+  migrations/0001_init.sql            # tables, RLS, storage bucket + policies
+  migrations/0002_discount_lookup.sql # find_discount_code() for the storefront
+  seed.sql                            # starter products & discount codes
+  config.toml                         # local CLI config
 src/
   app/
-    page.tsx                 # store landing placeholder
+    page.tsx                 # public storefront (one-page store)
+    api/discount/validate/   # POST discount validation (display only)
     auth/signout/route.ts    # sign-out handler
     admin/
       login/                 # public login page + action
@@ -155,15 +186,22 @@ src/
         page.tsx             # dashboard
         products/            # list, new, [id]/edit + server actions
         discounts/           # list/create/edit + server actions
-  components/admin/          # reusable admin UI components
+  components/
+    admin/                   # reusable admin UI components
+    store/                   # Header, Hero, ProductGrid, ProductCard,
+                             # CartDrawer, QuantitySelector, DiscountCodeInput,
+                             # FAQItem, Footer, ...
   lib/
     supabase/                # browser + server clients, middleware helper
     auth.ts                  # admin guards
     env.ts                   # validated env + ADMIN_EMAILS parsing
-    products.ts, discounts.ts# data access (read)
+    money.ts                 # CAD formatting + currency constants
+    products.ts, discounts.ts# data access (read) + discount validation
+    cart.ts                  # Zustand cart store (persisted)
     storage.ts               # image upload/delete helpers
     validation.ts            # Zod schemas + coercion helpers
     format.ts, types.ts
+  types/store.ts             # storefront/cart types
 middleware.ts                # session refresh + /admin protection
 ```
 
@@ -172,9 +210,17 @@ middleware.ts                # session refresh + /admin protection
 - Admin access is enforced in **two** places: `middleware.ts` (edge) and
   `requireAdmin()` / `assertAdmin()` (server components & actions).
 - Row Level Security is enabled on all tables. Public visitors can only read
-  **active** products and their images (for the future storefront); discount
-  codes are never exposed to anonymous users. Authenticated admins have full
-  access. Because admin accounts are gated by `ADMIN_EMAILS` and public
-  sign-ups should be disabled, only the owner can authenticate.
+  **active** products and their images; the `discount_codes` table is never
+  exposed to anonymous users. Discount validation goes through the
+  `/api/discount/validate` route, which computes everything server-side using
+  the `find_discount_code` SECURITY DEFINER function (single-code lookup only —
+  the table is not enumerable from the browser). Phase 3 checkout must still
+  recalculate discounts server-side before charging.
+- The cart lives entirely in the browser (Zustand + localStorage). On load it is
+  reconciled against the live product list: items for products that are no longer
+  active are dropped, and prices/names/images are refreshed so stale prices
+  aren't trusted.
+- No service-role key is used or exposed to the browser; only the public anon key
+  is needed.
 - All create/update/delete operations validate input server-side with Zod
   before touching the database.
