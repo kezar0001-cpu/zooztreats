@@ -96,13 +96,31 @@ There are two migrations in `supabase/migrations/`:
   storefront discount field to work.**
 
 **Option A — Supabase SQL Editor (quickest):**
-Open the SQL Editor in the Supabase dashboard and run, in order:
-`0001_init.sql`, then `0002_discount_lookup.sql`, then `0003_orders.sql`, then
+Open the SQL Editor in the Supabase dashboard and run them **in order**:
+`0001_init.sql`, `0002_discount_lookup.sql`, `0003_orders.sql`,
+`0004_order_items_fk.sql`, `0005_order_confirmation_email.sql`,
+`0006_order_token.sql`, `0007_discount_redemption_cap.sql`,
+`0008_orders_rls_admin.sql`, `0009_product_allergens.sql`, then
 `supabase/seed.sql` (starter products and discount codes).
 
 `0003_orders.sql` adds the `orders` and `order_items` tables, an atomic
 `increment_discount_redemption` function, and a `stripe_coupon_id` column on
 `discount_codes`. **Required for Phase 3 checkout.**
+
+Migrations 0004–0009 add later improvements:
+
+- `0004` — `order_items.product_id` becomes `ON DELETE SET NULL` so products in
+  past orders can still be deleted.
+- `0005` — `confirmation_email_sent` flag (idempotent order emails).
+- `0006` — `order_token` + `get_order_by_token()` for the customer order-status
+  page (`/orders/[token]`).
+- `0007` — `increment_discount_redemption` now enforces `max_redemptions`
+  atomically.
+- `0008` — locks `orders`/`order_items` RLS to admins via an `admins` table +
+  `is_admin()`. **Seed it to match `ADMIN_EMAILS`**, e.g.
+  `insert into public.admins (email) values ('owner@zooztreats.com');`
+  (The app reads orders via the service role, so this is defense-in-depth.)
+- `0009` — `allergens` column shown on product pages.
 
 **Option B — Supabase CLI (recommended for ongoing work):**
 
@@ -163,9 +181,22 @@ STRIPE_WEBHOOK_SECRET=whsec_...
 # Public Stripe / site
 NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...
 NEXT_PUBLIC_SITE_URL=http://localhost:3000
+
+# Transactional email (optional — order confirmations & status updates)
+RESEND_API_KEY=re_...
+EMAIL_FROM=Zooz Treats <orders@zooztreats.com>
+ORDER_NOTIFICATION_EMAIL=owner@zooztreats.com
+
+# Background jobs (abandoned-order cleanup cron)
+CRON_SECRET=<random-string>
 ```
 
 `ADMIN_EMAILS` is a **comma-separated** list of allowed admin emails.
+
+Email is **optional**: if `RESEND_API_KEY` is empty the store works normally but
+no confirmation/status emails are sent. The cron secret protects
+`/api/cron/reap-pending`, which deletes abandoned `pending` orders hourly
+(configured in `vercel.json`).
 
 | Variable | Where to find it | Exposed to browser? |
 | --- | --- | --- |
@@ -176,6 +207,10 @@ NEXT_PUBLIC_SITE_URL=http://localhost:3000
 | `STRIPE_WEBHOOK_SECRET` | `stripe listen` or Dashboard webhook | **No** |
 | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Stripe → Developers → API keys | Yes |
 | `NEXT_PUBLIC_SITE_URL` | Your app URL | Yes |
+| `RESEND_API_KEY` | Resend → API Keys (optional) | **No** |
+| `EMAIL_FROM` | Verified Resend sender (optional) | **No** |
+| `ORDER_NOTIFICATION_EMAIL` | Owner inbox for new orders (optional) | **No** |
+| `CRON_SECRET` | Any random string (optional) | **No** |
 
 ## 6. Local development
 
@@ -225,8 +260,9 @@ stripe listen --forward-to localhost:3000/api/stripe/webhook
 
 1. **Stripe Dashboard → Developers → Webhooks → Add endpoint**.
 2. Endpoint URL: `https://<your-domain>/api/stripe/webhook`.
-3. Subscribe to events: `checkout.session.completed` and
-   `checkout.session.expired`.
+3. Subscribe to events: `checkout.session.completed`,
+   `checkout.session.expired`, and `charge.refunded` (to sync refunds made from
+   the Stripe dashboard).
 4. Copy the endpoint's **Signing secret** into `STRIPE_WEBHOOK_SECRET` on Vercel.
 
 > The webhook route is always deployed. If `STRIPE_WEBHOOK_SECRET` is missing it
@@ -269,6 +305,12 @@ supabase/
   migrations/0001_init.sql            # tables, RLS, storage bucket + policies
   migrations/0002_discount_lookup.sql # find_discount_code() for the storefront
   migrations/0003_orders.sql          # orders, order_items, redemption fn
+  migrations/0004_order_items_fk.sql  # ON DELETE SET NULL for product_id
+  migrations/0005_order_confirmation_email.sql # email idempotency flag
+  migrations/0006_order_token.sql     # order_token + get_order_by_token()
+  migrations/0007_discount_redemption_cap.sql  # atomic max_redemptions
+  migrations/0008_orders_rls_admin.sql # admins table + is_admin() RLS
+  migrations/0009_product_allergens.sql # allergens column
   seed.sql                            # starter products & discount codes
   config.toml                         # local CLI config
 src/
