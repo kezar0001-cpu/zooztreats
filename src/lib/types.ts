@@ -2,6 +2,10 @@
 
 export type DiscountType = "percent" | "fixed" | "free_shipping";
 
+// Cookie-box tier. Drives which customization options a product offers.
+// null = a regular product with no packaging customization.
+export type BoxType = "standard" | "party" | "premium";
+
 export interface Product {
   id: string;
   slug: string;
@@ -14,6 +18,7 @@ export interface Product {
   sort_order: number;
   prep_time_note: string | null;
   allergens: string | null;
+  box_type: BoxType | null;
   created_at: string;
   updated_at: string;
 }
@@ -105,6 +110,9 @@ export interface Order {
   discount_code: string | null;
   discount_cents: number;
   shipping_cents: number;
+  expedite: boolean;
+  expedite_cents: number;
+  lead_time_days: number | null;
   total_cents: number;
   payment_status: PaymentStatus;
   order_status: OrderStatus;
@@ -116,6 +124,22 @@ export interface Order {
   updated_at: string;
 }
 
+// Snapshot of a line's chosen customization, stored on order_items.options.
+// unit_price_cents already includes surchargeCents; these fields are for display
+// and record-keeping.
+export interface OrderItemOptions {
+  boxType: BoxType;
+  ribbonColourName?: string;
+  ribbonSurchargeCents?: number;
+  finish?: "wax" | "sticker";
+  finishLabel?: string;
+  finishSurchargeCents?: number;
+  stickerUploadUrl?: string;
+  stickerUploadPath?: string;
+  basePriceCents: number;
+  surchargeCents: number;
+}
+
 export interface OrderItem {
   id: string;
   order_id: string;
@@ -124,9 +148,45 @@ export interface OrderItem {
   quantity: number;
   unit_price_cents: number;
   total_cents: number;
+  options: OrderItemOptions | null;
   created_at: string;
 }
 
 export interface OrderWithItems extends Order {
   order_items: OrderItem[];
+}
+
+// --- Site settings & customization -----------------------------------------
+
+export type ExpediteFeeType = "fixed" | "percent";
+
+export interface Settings {
+  delivery_lead_time_days: number;
+  expedite_enabled: boolean;
+  expedite_fee_type: ExpediteFeeType;
+  expedite_fee_cents: number;
+  expedite_fee_percent: number;
+  expedite_lead_time_days: number;
+  party_sticker_surcharge_cents: number;
+  premium_wax_surcharge_cents: number;
+  premium_sticker_surcharge_cents: number;
+  social_tiktok: string | null;
+  social_instagram: string | null;
+  social_youtube: string | null;
+  social_x: string | null;
+  terms_content: string | null;
+  privacy_content: string | null;
+  refund_content: string | null;
+  updated_at?: string;
+}
+
+export interface RibbonColour {
+  id: string;
+  name: string;
+  hex: string | null;
+  surcharge_cents: number;
+  active: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
 }

@@ -1,4 +1,4 @@
-import type { DiscountType } from "@/lib/types";
+import type { BoxType, DiscountType } from "@/lib/types";
 
 // A product as displayed in the public storefront. Derived from the DB
 // `products` + `product_images` tables, flattened to the primary image.
@@ -12,19 +12,40 @@ export interface StoreProduct {
   allergens: string | null;
   price_cents: number;
   featured: boolean;
+  box_type: BoxType | null;
   image_url: string | null;
   image_alt: string | null;
 }
 
+// A customer-uploaded sticker design, stored in the customization-uploads bucket.
+export interface StickerUpload {
+  url: string;
+  path: string;
+}
+
+// Customization the customer chose for a party / premium box.
+export interface CartItemOptions {
+  ribbonColourId?: string;
+  ribbonColourName?: string;
+  finish?: "wax" | "sticker"; // premium only
+  stickerUpload?: StickerUpload; // party always; premium when finish === "sticker"
+}
+
 // A single line in the cart. We snapshot a few display fields, but the price
 // is reconciled against the live product list on load to avoid stale prices.
+// `key` uniquely identifies the line (product + chosen options) so the same
+// product with different customization is a separate line.
 export interface CartItem {
+  key: string;
   productId: string;
   slug: string;
   name: string;
   priceCents: number;
   imageUrl: string | null;
   quantity: number;
+  boxType: BoxType | null;
+  options?: CartItemOptions;
+  optionsSurchargeCents: number;
 }
 
 // Result returned by the discount validation API and stored in the cart.

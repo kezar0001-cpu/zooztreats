@@ -7,8 +7,23 @@ import { priceCart, ensureStripeCoupon, CheckoutError } from "@/lib/checkout";
 import { STORE_STRIPE_CURRENCY } from "@/lib/money";
 import { env } from "@/lib/env";
 import { ALLOWED_SHIPPING_COUNTRIES } from "@/lib/fulfillment";
+import type { OrderItemOptions } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
+
+const optionsSchema = z
+  .object({
+    ribbonColourId: z.string().uuid().optional(),
+    ribbonColourName: z.string().max(80).optional(),
+    finish: z.enum(["wax", "sticker"]).optional(),
+    stickerUpload: z
+      .object({
+        url: z.string().url().max(2000),
+        path: z.string().max(400),
+      })
+      .optional(),
+  })
+  .optional();
 
 const bodySchema = z.object({
   items: z
@@ -16,15 +31,42 @@ const bodySchema = z.object({
       z.object({
         product_id: z.string().uuid(),
         quantity: z.number().int().min(1).max(99),
+        options: optionsSchema,
       }),
     )
     .min(1, "Your cart is empty."),
   discount_code: z.string().trim().max(50).nullable().optional(),
   fulfillment_method: z.enum(["shipping", "pickup"]),
+  expedite: z.boolean().optional().default(false),
 });
 
 function baseUrl(request: Request): string {
   return env.siteUrl ?? new URL(request.url).origin;
+}
+
+// A Stripe line item name that includes the chosen box options for the receipt.
+function lineItemName(
+  productName: string,
+  options: OrderItemOptions | null,
+): string {
+  if (!options) return productName;
+  const bits: string[] = [];
+  if (options.ribbonColourName) bits.push(`Ribbon: ${options.ribbonColourName}`);
+  if (options.finishLabel) bits.push(options.finishLabel);
+  return bits.length > 0 ? `${productName} — ${bits.join(" · ")}` : productName;
+}
+
+// Display name for the combined shipping + expedite fee line.
+function feeDisplayName(
+  method: "shipping" | "pickup",
+  shippingCents: number,
+  expediteCents: number,
+): string {
+  if (method === "pickup") return "Expedited processing";
+  if (expediteCents > 0) return "Shipping + expedite (Canada)";
+  return shippingCents === 0
+    ? "Free shipping (Canada)"
+    : "Standard shipping (Canada)";
 }
 
 export async function POST(request: Request) {
@@ -43,7 +85,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const { items, discount_code, fulfillment_method } = parsed.data;
+  const { items, discount_code, fulfillment_method, expedite } = parsed.data;
 
   let orderId: string | null = null;
   const admin = createAdminClient();
@@ -54,6 +96,7 @@ export async function POST(request: Request) {
       items,
       discount_code ?? null,
       fulfillment_method,
+      expedite,
     );
 
     // 11-12. Create the pending order + items.
@@ -65,6 +108,9 @@ export async function POST(request: Request) {
         discount_code: priced.discount?.normalized_code ?? null,
         discount_cents: priced.discount_cents,
         shipping_cents: priced.shipping_cents,
+        expedite: priced.expedite,
+        expedite_cents: priced.expedite_cents,
+        lead_time_days: priced.lead_time_days,
         total_cents: priced.total_cents,
         payment_status: "pending",
         order_status: "pending",
@@ -85,6 +131,7 @@ export async function POST(request: Request) {
         quantity: l.quantity,
         unit_price_cents: l.unit_price_cents,
         total_cents: l.total_cents,
+        options: l.options,
       })),
     );
     if (itemsError) throw new Error(itemsError.message);
@@ -98,7 +145,7 @@ export async function POST(request: Request) {
         price_data: {
           currency: STORE_STRIPE_CURRENCY,
           unit_amount: l.unit_price_cents,
-          product_data: { name: l.product_name },
+          product_data: { name: lineItemName(l.product_name, l.options) },
         },
       }));
 
@@ -113,34 +160,43 @@ export async function POST(request: Request) {
         order_id: order.id,
         discount_code: priced.discount?.normalized_code ?? "",
         fulfillment_method,
+        expedite: priced.expedite ? "1" : "0",
       },
     };
 
-    // Product-level discount coupon (percent / fixed only).
+    // Product-level discount coupon (percent / fixed only). Coupons apply to
+    // line items only — shipping/expedite fees below are excluded.
     if (priced.discountRow && priced.discountRow.type !== "free_shipping") {
       const couponId = await ensureStripeCoupon(priced.discountRow);
       if (couponId) sessionParams.discounts = [{ coupon: couponId }];
     }
 
-    // Shipping vs pickup.
+    // Shipping + expedite are charged via a fixed shipping-rate line so a percent
+    // coupon never discounts them. The two are folded into one fee that always
+    // equals priced.shipping_cents + priced.expedite_cents.
     if (fulfillment_method === "shipping") {
       sessionParams.shipping_address_collection = {
         allowed_countries: [
           ...ALLOWED_SHIPPING_COUNTRIES,
         ] as Stripe.Checkout.SessionCreateParams.ShippingAddressCollection.AllowedCountry[],
       };
+    }
+
+    const feeCents = priced.shipping_cents + priced.expedite_cents;
+    if (fulfillment_method === "shipping" || feeCents > 0) {
       sessionParams.shipping_options = [
         {
           shipping_rate_data: {
             type: "fixed_amount",
             fixed_amount: {
-              amount: priced.shipping_cents,
+              amount: feeCents,
               currency: STORE_STRIPE_CURRENCY,
             },
-            display_name:
-              priced.shipping_cents === 0
-                ? "Free shipping (Canada)"
-                : "Standard shipping (Canada)",
+            display_name: feeDisplayName(
+              fulfillment_method,
+              priced.shipping_cents,
+              priced.expedite_cents,
+            ),
           },
         },
       ];

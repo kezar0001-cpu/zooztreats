@@ -13,6 +13,7 @@ export default async function ProtectedAdminLayout({
     { href: "/admin/products", label: "Products" },
     { href: "/admin/orders", label: "Orders" },
     { href: "/admin/discounts", label: "Discounts" },
+    { href: "/admin/settings", label: "Settings" },
   ];
 
   return (

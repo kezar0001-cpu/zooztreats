@@ -1,7 +1,24 @@
 import Link from "next/link";
 import { BrandLogo } from "@/components/brand/BrandLogo";
+import { getSettings } from "@/lib/settings";
+import { socialUrl } from "@/lib/store-config";
+import { SocialIcon, type SocialPlatform } from "./SocialIcons";
 
-export function Footer() {
+export async function Footer() {
+  const settings = await getSettings();
+
+  // An icon is shown only when its handle is set in admin Settings.
+  const socials = (
+    [
+      { platform: "tiktok", handle: settings.social_tiktok, label: "TikTok" },
+      { platform: "instagram", handle: settings.social_instagram, label: "Instagram" },
+      { platform: "youtube", handle: settings.social_youtube, label: "YouTube" },
+      { platform: "x", handle: settings.social_x, label: "X (Twitter)" },
+    ] as { platform: SocialPlatform; handle: string | null; label: string }[]
+  )
+    .map((s) => ({ ...s, url: socialUrl(s.platform, s.handle) }))
+    .filter((s): s is typeof s & { url: string } => Boolean(s.url));
+
   return (
     <footer className="bg-brand-900 text-cream-100">
       <div className="mx-auto max-w-6xl px-4 py-12">
@@ -19,28 +36,27 @@ export function Footer() {
 
           <div>
             <h3 className="text-sm font-semibold uppercase tracking-wide text-cream-200/70">
-              Stay in touch
+              Follow us
             </h3>
-            <ul className="mt-3 space-y-2 text-sm">
-              <li>
-                <a
-                  href="https://instagram.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-cream-100 hover:text-white"
-                >
-                  Instagram @zooztreats
-                </a>
-              </li>
-              <li>
-                <a
-                  href="mailto:hello@zooztreats.ca"
-                  className="text-cream-100 hover:text-white"
-                >
-                  hello@zooztreats.ca
-                </a>
-              </li>
-            </ul>
+            {socials.length > 0 ? (
+              <div className="mt-3 flex items-center gap-3">
+                {socials.map((s) => (
+                  <a
+                    key={s.platform}
+                    href={s.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={s.label}
+                    title={s.label}
+                    className="flex h-9 w-9 items-center justify-center rounded-full bg-cream-100/10 text-cream-100 transition-colors hover:bg-cream-100/20 hover:text-white"
+                  >
+                    <SocialIcon platform={s.platform} />
+                  </a>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-3 text-sm text-cream-200/60">Coming soon.</p>
+            )}
           </div>
 
           <div>
@@ -49,19 +65,22 @@ export function Footer() {
             </h3>
             <ul className="mt-3 space-y-2 text-sm">
               <li>
-                <a href="#" className="text-cream-100 hover:text-white">
+                <Link href="/terms" className="text-cream-100 hover:text-white">
                   Terms
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="#" className="text-cream-100 hover:text-white">
+                <Link href="/privacy" className="text-cream-100 hover:text-white">
                   Privacy
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="#" className="text-cream-100 hover:text-white">
+                <Link
+                  href="/refund-policy"
+                  className="text-cream-100 hover:text-white"
+                >
                   Refund Policy
-                </a>
+                </Link>
               </li>
             </ul>
           </div>

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getOrderByToken } from "@/lib/orders";
 import { formatMoney } from "@/lib/money";
 import { formatDate } from "@/lib/format";
+import { leadTimeLabel } from "@/lib/store-config";
 import { BrandLogo } from "@/components/brand/BrandLogo";
 
 export const dynamic = "force-dynamic";
@@ -138,11 +139,23 @@ export default async function OrderStatusPage({
           </h2>
           <ul className="divide-y divide-cream-200">
             {order.items.map((item, i) => (
-              <li key={i} className="flex justify-between py-2 text-sm">
+              <li key={i} className="flex justify-between gap-3 py-2 text-sm">
                 <span className="text-brand-900">
                   {item.product_name} × {item.quantity}
+                  {item.options ? (
+                    <span className="mt-0.5 block text-xs text-brand-800/60">
+                      {[
+                        item.options.ribbonColourName
+                          ? `Ribbon: ${item.options.ribbonColourName}`
+                          : null,
+                        item.options.finishLabel,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </span>
+                  ) : null}
                 </span>
-                <span className="font-medium text-brand-900">
+                <span className="whitespace-nowrap font-medium text-brand-900">
                   {formatMoney(item.total_cents)}
                 </span>
               </li>
@@ -168,6 +181,12 @@ export default async function OrderStatusPage({
                   : formatMoney(order.shipping_cents)
               }
             />
+            {order.expedite_cents > 0 ? (
+              <SummaryRow
+                label="Expedite"
+                value={formatMoney(order.expedite_cents)}
+              />
+            ) : null}
             <SummaryRow
               label="Total"
               value={formatMoney(order.total_cents)}
@@ -181,6 +200,15 @@ export default async function OrderStatusPage({
           <h2 className="mb-2 font-serif text-lg font-semibold text-brand-900">
             {order.fulfillment_method === "pickup" ? "Pickup" : "Delivery"}
           </h2>
+          {order.lead_time_days != null &&
+          order.order_status !== "completed" &&
+          !terminal ? (
+            <p className="mb-2 flex items-center gap-1.5 text-sm text-brand-700/80">
+              <span aria-hidden>⏱️</span>
+              Estimated ready {leadTimeLabel(order.lead_time_days)}
+              {order.expedite ? " (expedited)" : ""}
+            </p>
+          ) : null}
           {order.fulfillment_method === "pickup" ? (
             <p className="text-sm text-brand-800/80">
               Local pickup in Montreal. We&apos;ll let you know when it&apos;s

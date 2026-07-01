@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getOrderById } from "@/lib/orders";
 import { formatMoney } from "@/lib/money";
 import { formatDate } from "@/lib/format";
+import { leadTimeLabel } from "@/lib/store-config";
 import { PaymentBadge, OrderStatusBadge } from "@/components/admin/OrderBadges";
 import { OrderStatusForm } from "@/components/admin/OrderStatusForm";
 import { RefundButton } from "@/components/admin/RefundButton";
@@ -71,6 +72,21 @@ export default async function OrderDetailPage({
                 <span className="capitalize">{order.fulfillment_method}</span>
               }
             />
+            {order.lead_time_days != null ? (
+              <Row
+                label="Est. ready"
+                value={
+                  <span>
+                    {leadTimeLabel(order.lead_time_days)}
+                    {order.expedite ? (
+                      <span className="ml-1 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-800">
+                        Expedited
+                      </span>
+                    ) : null}
+                  </span>
+                }
+              />
+            ) : null}
           </dl>
         </div>
 
@@ -115,7 +131,29 @@ export default async function OrderDetailPage({
           <tbody className="divide-y divide-gray-100">
             {order.order_items.map((item) => (
               <tr key={item.id}>
-                <td className="px-4 py-3 text-gray-900">{item.product_name}</td>
+                <td className="px-4 py-3 text-gray-900">
+                  {item.product_name}
+                  {item.options ? (
+                    <div className="mt-1 space-y-0.5 text-xs text-gray-500">
+                      {item.options.ribbonColourName ? (
+                        <div>Ribbon: {item.options.ribbonColourName}</div>
+                      ) : null}
+                      {item.options.finishLabel ? (
+                        <div>Finish: {item.options.finishLabel}</div>
+                      ) : null}
+                      {item.options.stickerUploadUrl ? (
+                        <a
+                          href={item.options.stickerUploadUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-brand-700 underline"
+                        >
+                          View sticker design ↗
+                        </a>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </td>
                 <td className="px-4 py-3 text-gray-700">{item.quantity}</td>
                 <td className="px-4 py-3 text-gray-700">
                   {formatMoney(item.unit_price_cents)}
@@ -137,6 +175,9 @@ export default async function OrderDetailPage({
               />
             ) : null}
             <Row label="Shipping" value={formatMoney(order.shipping_cents)} />
+            {order.expedite_cents > 0 ? (
+              <Row label="Expedite" value={formatMoney(order.expedite_cents)} />
+            ) : null}
             <div className="mt-1 border-t border-gray-200 pt-2">
               <Row
                 label="Total"

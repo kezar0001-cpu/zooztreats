@@ -44,6 +44,7 @@ export const productSchema = z.object({
   category: z.string().trim().max(100).optional().or(z.literal("")),
   prep_time_note: z.string().trim().max(500).optional().or(z.literal("")),
   allergens: z.string().trim().max(1000).optional().or(z.literal("")),
+  box_type: z.enum(["standard", "party", "premium"]).nullable().default(null),
   active: z.boolean(),
   featured: z.boolean(),
   sort_order: z.number().int().min(0).default(0),
@@ -90,6 +91,97 @@ export const discountSchema = z
   });
 
 export type DiscountInput = z.infer<typeof discountSchema>;
+
+// ---------------------------------------------------------------------------
+// Site settings (admin) — one schema per section of the settings page
+// ---------------------------------------------------------------------------
+const handleField = z
+  .string()
+  .trim()
+  .max(64)
+  .regex(/^@?[A-Za-z0-9._-]+$/, "Use letters, numbers, dots, hyphens or underscores.")
+  .optional()
+  .or(z.literal(""));
+
+export const deliverySettingsSchema = z.object({
+  delivery_lead_time_days: z
+    .number({ invalid_type_error: "Enter a number of days." })
+    .int("Enter a whole number of days.")
+    .min(0, "Cannot be negative.")
+    .max(365, "That seems too long."),
+});
+
+export const expediteSettingsSchema = z
+  .object({
+    expedite_enabled: z.boolean(),
+    expedite_fee_type: z.enum(["fixed", "percent"]),
+    expedite_fee_cents: z.number().int().min(0, "Cannot be negative."),
+    expedite_fee_percent: z
+      .number()
+      .int()
+      .min(0, "Cannot be negative.")
+      .max(100, "Cannot exceed 100%."),
+    expedite_lead_time_days: z
+      .number({ invalid_type_error: "Enter a number of days." })
+      .int()
+      .min(0, "Cannot be negative.")
+      .max(365, "That seems too long."),
+  })
+  .superRefine((data, ctx) => {
+    if (data.expedite_enabled) {
+      if (data.expedite_fee_type === "fixed" && data.expedite_fee_cents <= 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Set a fee greater than $0.",
+          path: ["expedite_fee_cents"],
+        });
+      }
+      if (data.expedite_fee_type === "percent" && data.expedite_fee_percent <= 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Set a percentage greater than 0.",
+          path: ["expedite_fee_percent"],
+        });
+      }
+    }
+  });
+
+export const socialSettingsSchema = z.object({
+  social_tiktok: handleField,
+  social_instagram: handleField,
+  social_youtube: handleField,
+  social_x: handleField,
+});
+
+export const boxOptionSettingsSchema = z.object({
+  party_sticker_surcharge_cents: z.number().int().min(0, "Cannot be negative."),
+  premium_wax_surcharge_cents: z.number().int().min(0, "Cannot be negative."),
+  premium_sticker_surcharge_cents: z.number().int().min(0, "Cannot be negative."),
+});
+
+export const policySettingsSchema = z.object({
+  terms_content: z.string().max(50000).optional().or(z.literal("")),
+  privacy_content: z.string().max(50000).optional().or(z.literal("")),
+  refund_content: z.string().max(50000).optional().or(z.literal("")),
+});
+
+// ---------------------------------------------------------------------------
+// Ribbon colour (admin)
+// ---------------------------------------------------------------------------
+export const ribbonColourSchema = z.object({
+  name: z.string().trim().min(1, "Name is required.").max(60),
+  hex: z
+    .string()
+    .trim()
+    .regex(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/, "Use a hex colour like #c0392b.")
+    .optional()
+    .or(z.literal("")),
+  surcharge_cents: z.number().int().min(0, "Cannot be negative."),
+  active: z.boolean(),
+  sort_order: z.number().int().min(0).default(0),
+});
+
+export type RibbonColourInput = z.infer<typeof ribbonColourSchema>;
 
 // ---------------------------------------------------------------------------
 // Image upload constraints

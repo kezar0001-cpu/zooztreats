@@ -2,12 +2,14 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getActiveProductBySlug, getPrimaryImage } from "@/lib/products";
+import { getRibbonColours, getSettings } from "@/lib/settings";
 import { formatMoney } from "@/lib/money";
 import { Header } from "@/components/store/Header";
 import { Footer } from "@/components/store/Footer";
 import { CartDrawer } from "@/components/store/CartDrawer";
 import { ProductImage } from "@/components/store/ProductImage";
 import { AddToCartButton } from "@/components/store/AddToCartButton";
+import { BoxConfigurator } from "@/components/store/BoxConfigurator";
 import type { StoreProduct } from "@/types/store";
 
 const siteUrl =
@@ -62,9 +64,17 @@ export default async function ProductDetailPage({
     allergens: product.allergens,
     price_cents: product.price_cents,
     featured: product.featured,
+    box_type: product.box_type ?? null,
     image_url: primary?.image_url ?? null,
     image_alt: primary?.alt_text ?? null,
   };
+
+  // Party / premium boxes need the ribbon list + option surcharges to configure.
+  const isConfigurable =
+    product.box_type === "party" || product.box_type === "premium";
+  const [ribbonColours, settings] = isConfigurable
+    ? await Promise.all([getRibbonColours(), getSettings()])
+    : [[], null];
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -145,7 +155,19 @@ export default async function ProductDetailPage({
             ) : null}
 
             <div className="mt-7">
-              <AddToCartButton product={storeProduct} />
+              {isConfigurable && settings ? (
+                <BoxConfigurator
+                  product={storeProduct}
+                  ribbonColours={ribbonColours}
+                  surcharges={{
+                    partySticker: settings.party_sticker_surcharge_cents,
+                    premiumWax: settings.premium_wax_surcharge_cents,
+                    premiumSticker: settings.premium_sticker_surcharge_cents,
+                  }}
+                />
+              ) : (
+                <AddToCartButton product={storeProduct} />
+              )}
             </div>
 
             {product.allergens ? (

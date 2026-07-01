@@ -4,6 +4,7 @@ import {
   ORDER_STATUSES,
   type FulfillmentMethod,
   type Order,
+  type OrderItemOptions,
   type OrderStatus,
   type OrderWithItems,
 } from "@/lib/types";
@@ -132,6 +133,7 @@ export interface PublicOrderItem {
   quantity: number;
   unit_price_cents: number;
   total_cents: number;
+  options: OrderItemOptions | null;
 }
 
 export interface PublicOrder {
@@ -145,6 +147,9 @@ export interface PublicOrder {
   discount_code: string | null;
   discount_cents: number;
   shipping_cents: number;
+  expedite: boolean;
+  expedite_cents: number;
+  lead_time_days: number | null;
   total_cents: number;
   shipping_name: string | null;
   shipping_line1: string | null;
