@@ -27,6 +27,7 @@ function checkbox(value: FormDataEntryValue | null): boolean {
 
 function parseProductForm(formData: FormData) {
   const priceCents = dollarsToCents(String(formData.get("price") ?? ""));
+  const boxTypeRaw = String(formData.get("box_type") ?? "");
 
   return productSchema.safeParse({
     name: String(formData.get("name") ?? ""),
@@ -36,6 +37,7 @@ function parseProductForm(formData: FormData) {
     category: String(formData.get("category") ?? ""),
     prep_time_note: String(formData.get("prep_time_note") ?? ""),
     allergens: String(formData.get("allergens") ?? ""),
+    box_type: boxTypeRaw === "" ? null : boxTypeRaw,
     active: checkbox(formData.get("active")),
     featured: checkbox(formData.get("featured")),
     sort_order: Number(formData.get("sort_order") ?? 0) || 0,
@@ -75,6 +77,7 @@ export async function createProduct(
       category: v.category || null,
       prep_time_note: v.prep_time_note || null,
       allergens: v.allergens || null,
+      box_type: v.box_type,
       active: v.active,
       featured: v.featured,
       sort_order: v.sort_order,
@@ -135,6 +138,7 @@ export async function updateProduct(
       category: v.category || null,
       prep_time_note: v.prep_time_note || null,
       allergens: v.allergens || null,
+      box_type: v.box_type,
       active: v.active,
       featured: v.featured,
       sort_order: v.sort_order,

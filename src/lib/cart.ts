@@ -2,7 +2,12 @@
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { CartItem, DiscountValidation, StoreProduct } from "@/types/store";
+import type {
+  CartItem,
+  CartItemOptions,
+  DiscountValidation,
+  StoreProduct,
+} from "@/types/store";
 import type { FulfillmentMethod } from "@/lib/types";
 
 const MAX_QTY = 99;
@@ -12,6 +17,28 @@ function clampQty(qty: number): number {
   return Math.min(MAX_QTY, Math.max(1, Math.floor(qty)));
 }
 
+// Stable identity for a cart line. Two additions of the same product with
+// different customization (ribbon, finish, or uploaded design) become separate
+// lines; identical configurations merge.
+function lineKey(productId: string, options?: CartItemOptions): string {
+  if (!options) return productId;
+  const parts = [
+    options.ribbonColourId ?? "",
+    options.finish ?? "",
+    options.stickerUpload?.path ?? "",
+  ];
+  if (parts.every((p) => p === "")) return productId;
+  return `${productId}|${parts.join("~")}`;
+}
+
+// The per-item options shape sent to the checkout API. The server re-derives the
+// name and price from the database; it only needs the identifiers + upload refs.
+export interface CheckoutItemInput {
+  product_id: string;
+  quantity: number;
+  options?: CartItemOptions;
+}
+
 interface CartState {
   items: CartItem[];
   isOpen: boolean;
@@ -19,17 +46,25 @@ interface CartState {
   discountCode: string | null;
   discount: DiscountValidation | null;
   fulfillmentMethod: FulfillmentMethod;
+  // Whether the customer opted into the paid expedite (rush) option.
+  expedite: boolean;
 
   // UI
   openCart: () => void;
   closeCart: () => void;
   toggleCart: () => void;
   setFulfillmentMethod: (method: FulfillmentMethod) => void;
+  setExpedite: (value: boolean) => void;
 
   // Items
-  addItem: (product: StoreProduct, quantity?: number) => void;
-  removeItem: (productId: string) => void;
-  setQuantity: (productId: string, quantity: number) => void;
+  addItem: (
+    product: StoreProduct,
+    quantity?: number,
+    options?: CartItemOptions,
+    optionsSurchargeCents?: number,
+  ) => void;
+  removeItem: (key: string) => void;
+  setQuantity: (key: string, quantity: number) => void;
   clear: () => void;
 
   // Discount
@@ -38,7 +73,7 @@ interface CartState {
 
   // Reconcile the persisted cart against the live product list: drop items that
   // are no longer active and refresh names/prices/images so we never trust
-  // stale prices from localStorage.
+  // stale prices from localStorage. Customization options are preserved.
   reconcile: (activeProducts: StoreProduct[]) => void;
 }
 
@@ -50,55 +85,61 @@ export const useCart = create<CartState>()(
       discountCode: null,
       discount: null,
       fulfillmentMethod: "shipping",
+      expedite: false,
 
       openCart: () => set({ isOpen: true }),
       closeCart: () => set({ isOpen: false }),
       toggleCart: () => set((s) => ({ isOpen: !s.isOpen })),
       setFulfillmentMethod: (method) => set({ fulfillmentMethod: method }),
+      setExpedite: (value) => set({ expedite: value }),
 
-      addItem: (product, quantity = 1) =>
+      addItem: (product, quantity = 1, options, optionsSurchargeCents = 0) =>
         set((s) => {
-          const existing = s.items.find((i) => i.productId === product.id);
+          const key = lineKey(product.id, options);
+          const existing = s.items.find((i) => i.key === key);
           if (existing) {
             return {
               items: s.items.map((i) =>
-                i.productId === product.id
+                i.key === key
                   ? { ...i, quantity: clampQty(i.quantity + quantity) }
                   : i,
               ),
             };
           }
           const item: CartItem = {
+            key,
             productId: product.id,
             slug: product.slug,
             name: product.name,
             priceCents: product.price_cents,
             imageUrl: product.image_url,
             quantity: clampQty(quantity),
+            boxType: product.box_type,
+            options,
+            optionsSurchargeCents,
           };
           return { items: [...s.items, item] };
         }),
 
-      removeItem: (productId) =>
+      removeItem: (key) =>
         set((s) => ({
-          items: s.items.filter((i) => i.productId !== productId),
+          items: s.items.filter((i) => i.key !== key),
         })),
 
-      setQuantity: (productId, quantity) =>
+      setQuantity: (key, quantity) =>
         set((s) => {
           if (quantity <= 0) {
-            return { items: s.items.filter((i) => i.productId !== productId) };
+            return { items: s.items.filter((i) => i.key !== key) };
           }
           return {
             items: s.items.map((i) =>
-              i.productId === productId
-                ? { ...i, quantity: clampQty(quantity) }
-                : i,
+              i.key === key ? { ...i, quantity: clampQty(quantity) } : i,
             ),
           };
         }),
 
-      clear: () => set({ items: [], discount: null, discountCode: null }),
+      clear: () =>
+        set({ items: [], discount: null, discountCode: null, expedite: false }),
 
       setDiscount: (code, result) =>
         set({ discountCode: code, discount: result }),
@@ -112,10 +153,13 @@ export const useCart = create<CartState>()(
             const p = byId.get(i.productId)!;
             return {
               ...i,
+              key: i.key ?? lineKey(i.productId, i.options),
               slug: p.slug,
               name: p.name,
               priceCents: p.price_cents,
               imageUrl: p.image_url,
+              boxType: p.box_type,
+              optionsSurchargeCents: i.optionsSurchargeCents ?? 0,
             };
           });
         set({ items });
@@ -123,10 +167,28 @@ export const useCart = create<CartState>()(
     }),
     {
       name: "zooz-cart",
-      // Persist line items + fulfillment choice; UI + discount are recomputed.
+      version: 1,
+      // Backfill fields added in v1 (line key, box type, option surcharge) for
+      // carts persisted before this release so old items stay usable.
+      migrate: (persisted: unknown) => {
+        const state = persisted as
+          | { items?: Partial<CartItem>[]; [k: string]: unknown }
+          | null;
+        if (state && Array.isArray(state.items)) {
+          state.items = state.items.map((i) => ({
+            ...i,
+            key: i.key ?? i.productId ?? "",
+            boxType: i.boxType ?? null,
+            optionsSurchargeCents: i.optionsSurchargeCents ?? 0,
+          })) as CartItem[];
+        }
+        return state as unknown as CartState;
+      },
+      // Persist line items + fulfillment/expedite choice; UI + discount are recomputed.
       partialize: (state) => ({
         items: state.items,
         fulfillmentMethod: state.fulfillmentMethod,
+        expedite: state.expedite,
       }),
     },
   ),
@@ -136,15 +198,21 @@ export const useCart = create<CartState>()(
 export const selectItemCount = (s: CartState): number =>
   s.items.reduce((n, i) => n + i.quantity, 0);
 
+// Subtotal includes each line's option surcharge (ribbon / seal / sticker).
 export const selectSubtotalCents = (s: CartState): number =>
-  s.items.reduce((sum, i) => sum + i.priceCents * i.quantity, 0);
+  s.items.reduce(
+    (sum, i) => sum + (i.priceCents + (i.optionsSurchargeCents ?? 0)) * i.quantity,
+    0,
+  );
 
-// Client helper: start checkout. Sends only product ids + quantities (and the
-// code/fulfillment choice). The server recalculates all prices and totals.
+// Client helper: start checkout. Sends only product ids + quantities + chosen
+// options (and the code/fulfillment/expedite choice). The server recalculates
+// all prices and totals.
 export async function requestCheckout(input: {
-  items: { product_id: string; quantity: number }[];
+  items: CheckoutItemInput[];
   discount_code: string | null;
   fulfillment_method: FulfillmentMethod;
+  expedite: boolean;
 }): Promise<{ url?: string; error?: string }> {
   try {
     const res = await fetch("/api/checkout", {

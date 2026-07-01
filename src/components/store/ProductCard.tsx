@@ -15,6 +15,9 @@ export function ProductCard({ product }: { product: StoreProduct }) {
   const [qty, setQty] = useState(1);
   const [added, setAdded] = useState(false);
 
+  const needsConfig =
+    product.box_type === "party" || product.box_type === "premium";
+
   const handleAdd = () => {
     addItem(product, qty);
     toast(`${product.name} added to cart`);
@@ -70,14 +73,29 @@ export function ProductCard({ product }: { product: StoreProduct }) {
         ) : null}
 
         <div className="mt-5 flex items-center justify-between gap-3 pt-1">
-          <QuantitySelector value={qty} onChange={setQty} ariaLabel="Quantity" />
-          <button
-            type="button"
-            onClick={handleAdd}
-            className="store-btn-primary !px-5 !py-2.5 text-sm"
-          >
-            {added ? "Added ✓" : "Add to Cart"}
-          </button>
+          {needsConfig ? (
+            <Link
+              href={`/products/${product.slug}`}
+              className="store-btn-primary ml-auto !px-5 !py-2.5 text-sm"
+            >
+              Customize →
+            </Link>
+          ) : (
+            <>
+              <QuantitySelector
+                value={qty}
+                onChange={setQty}
+                ariaLabel="Quantity"
+              />
+              <button
+                type="button"
+                onClick={handleAdd}
+                className="store-btn-primary !px-5 !py-2.5 text-sm"
+              >
+                {added ? "Added ✓" : "Add to Cart"}
+              </button>
+            </>
+          )}
         </div>
       </div>
     </article>

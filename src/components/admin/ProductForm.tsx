@@ -178,6 +178,29 @@ export function ProductForm({
         </div>
 
         <div>
+          <label htmlFor="box_type" className="admin-label">
+            Box type
+          </label>
+          <select
+            id="box_type"
+            name="box_type"
+            className="admin-input"
+            defaultValue={product?.box_type ?? ""}
+          >
+            <option value="">Regular product (no customization)</option>
+            <option value="standard">Standard cookie box</option>
+            <option value="party">Party box (ribbon + custom sticker)</option>
+            <option value="premium">
+              Premium box (ribbon + wax seal / sticker)
+            </option>
+          </select>
+          <p className="mt-1 text-xs text-gray-400">
+            Party and premium boxes let customers pick a ribbon colour and upload
+            a sticker design on the product page.
+          </p>
+        </div>
+
+        <div>
           <label htmlFor="allergens" className="admin-label">
             Allergens / ingredients
           </label>

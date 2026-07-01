@@ -140,6 +140,7 @@ async function fetchActiveProducts(): Promise<StoreProduct[]> {
       allergens: p.allergens,
       price_cents: p.price_cents,
       featured: p.featured,
+      box_type: p.box_type ?? null,
       image_url: primary?.image_url ?? null,
       image_alt: primary?.alt_text ?? null,
     };
